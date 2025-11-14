@@ -20,3 +20,8 @@ export { default as GlassBackground } from './GlassBackground';
 export { default as GlassTabBar } from './GlassTabBar';
 export { default as AnimalCard } from './AnimalCard';
 export { default as TabIcon } from './TabIcon';
+
+// Modal components
+export { default as Modal } from './Modal';
+export { default as ConfirmDialog } from './ConfirmDialog';
+export { default as BottomSheet } from './BottomSheet';

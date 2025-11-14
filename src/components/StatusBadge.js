@@ -83,7 +83,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     borderRadius: theme.borderRadius.round,
     gap: theme.spacing.xs,
-    ...theme.shadow.sm,
   },
   
   // Sizes

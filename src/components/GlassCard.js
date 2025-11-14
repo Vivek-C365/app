@@ -46,7 +46,6 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',
-    ...theme.shadow.md,
   },
   glass: {
     borderRadius: theme.borderRadius.xl,

@@ -2,9 +2,10 @@
  * Gradient Button component with rich colors
  */
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
+import { getResponsiveFontSizes } from '../utils/responsive';
 
 export default function GradientButton({ 
   title, 
@@ -17,6 +18,10 @@ export default function GradientButton({
   style,
   textStyle 
 }) {
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 375;
+  const fontSizes = getResponsiveFontSizes();
+
   const getGradientColors = () => {
     switch (gradient) {
       case 'primary':
@@ -37,15 +42,33 @@ export default function GradientButton({
   };
 
   const getSizeStyle = () => {
+    const baseStyles = {
+      small: {
+        paddingVertical: isSmallScreen ? 8 : theme.spacing.sm,
+        paddingHorizontal: isSmallScreen ? 12 : theme.spacing.md,
+      },
+      medium: {
+        paddingVertical: isSmallScreen ? 12 : theme.spacing.md + 2,
+        paddingHorizontal: isSmallScreen ? 16 : theme.spacing.lg,
+      },
+      large: {
+        paddingVertical: isSmallScreen ? 14 : 18,
+        paddingHorizontal: isSmallScreen ? 20 : theme.spacing.xl,
+      },
+    };
+    return baseStyles[size] || baseStyles.medium;
+  };
+
+  const getTextSize = () => {
     switch (size) {
       case 'small':
-        return styles.smallButton;
+        return fontSizes.sm;
       case 'medium':
-        return styles.mediumButton;
+        return fontSizes.md;
       case 'large':
-        return styles.largeButton;
+        return fontSizes.lg;
       default:
-        return styles.mediumButton;
+        return fontSizes.md;
     }
   };
 
@@ -67,7 +90,7 @@ export default function GradientButton({
         ) : (
           <>
             {icon && icon}
-            <Text style={[styles.text, textStyle]}>
+            <Text style={[styles.text, { fontSize: getTextSize() }, textStyle]}>
               {title}
             </Text>
           </>
@@ -90,23 +113,8 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   
-  // Sizes
-  smallButton: {
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-  },
-  mediumButton: {
-    paddingVertical: theme.spacing.md + 2,
-    paddingHorizontal: theme.spacing.lg,
-  },
-  largeButton: {
-    paddingVertical: 18,
-    paddingHorizontal: theme.spacing.xl,
-  },
-  
   // Text
   text: {
-    fontSize: theme.typography.fontSize.md,
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.textInverse,
     letterSpacing: 0.5,

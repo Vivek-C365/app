@@ -9,6 +9,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import GlassInput from '../components/GlassInput';
 import GlassButton from '../components/GlassButton';
+import Modal from '../components/Modal';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function ReportScreen() {
   const [animalType, setAnimalType] = useState('');
@@ -19,16 +21,20 @@ export default function ReportScreen() {
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 375;
 
   const handleGetLocation = () => {
-    Alert.alert('GPS Location', 'GPS integration will be implemented in the next task');
+    setShowLocationModal(true);
   };
 
   const handleTakePhoto = () => {
-    Alert.alert('Camera', 'Camera integration will be implemented in the next task');
+    setShowPhotoModal(true);
   };
 
   const handleSubmit = async () => {
@@ -37,11 +43,15 @@ export default function ReportScreen() {
       return;
     }
 
+    setShowSubmitDialog(true);
+  };
+
+  const confirmSubmit = () => {
     setLoading(true);
     // API call will be implemented later
     setTimeout(() => {
       setLoading(false);
-      Alert.alert('Success', 'Report submitted! Nearby volunteers will be notified.');
+      setShowSuccessModal(true);
       // Reset form
       setAnimalType('');
       setCondition('');
@@ -159,6 +169,76 @@ export default function ReportScreen() {
           size="large"
         />
       </ScrollView>
+
+      <Modal
+        visible={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        title="GPS Location"
+        size="small"
+      >
+        <View style={styles.modalContent}>
+          <MaterialIcons name="location-searching" size={48} color={theme.colors.primary} />
+          <Text style={styles.modalText}>
+            GPS integration will be implemented in the next task. This will automatically detect your current location.
+          </Text>
+          <GlassButton
+            title="Got it"
+            onPress={() => setShowLocationModal(false)}
+            variant="primary"
+          />
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showPhotoModal}
+        onClose={() => setShowPhotoModal(false)}
+        title="Add Photos"
+        size="small"
+      >
+        <View style={styles.modalContent}>
+          <MaterialIcons name="add-a-photo" size={48} color={theme.colors.primary} />
+          <Text style={styles.modalText}>
+            Camera integration will be implemented in the next task. You'll be able to take photos or select from gallery.
+          </Text>
+          <GlassButton
+            title="Got it"
+            onPress={() => setShowPhotoModal(false)}
+            variant="primary"
+          />
+        </View>
+      </Modal>
+
+      <ConfirmDialog
+        visible={showSubmitDialog}
+        onClose={() => setShowSubmitDialog(false)}
+        onConfirm={confirmSubmit}
+        title="Submit Report"
+        message="Are you sure you want to submit this report? Nearby volunteers will be notified immediately."
+        confirmText="Submit"
+        cancelText="Review"
+        type="success"
+      />
+
+      <Modal
+        visible={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="Report Submitted!"
+        size="small"
+        showCloseButton={false}
+      >
+        <View style={styles.modalContent}>
+          <MaterialIcons name="check-circle" size={64} color={theme.colors.success} />
+          <Text style={styles.successTitle}>Success!</Text>
+          <Text style={styles.modalText}>
+            Your report has been submitted successfully. Nearby volunteers will be notified and will reach out to you soon.
+          </Text>
+          <GlassButton
+            title="Done"
+            onPress={() => setShowSuccessModal(false)}
+            variant="success"
+          />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -194,5 +274,19 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.md,
   },
-
+  modalContent: {
+    alignItems: 'center',
+    gap: theme.spacing.lg,
+  },
+  modalText: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  successTitle: {
+    fontSize: theme.typography.fontSize.xl,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.success,
+  },
 });

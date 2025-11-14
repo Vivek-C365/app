@@ -9,11 +9,13 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import GlassCard from '../components/GlassCard';
 import GlassButton from '../components/GlassButton';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function ProfileScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 375;
@@ -34,16 +36,11 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: () => {
-          Alert.alert('Logged Out', 'You have been logged out successfully');
-        }}
-      ]
-    );
+    setShowLogoutDialog(true);
+  };
+
+  const confirmLogout = () => {
+    Alert.alert('Logged Out', 'You have been logged out successfully');
   };
 
   return (
@@ -193,6 +190,17 @@ export default function ProfileScreen() {
         />
       </View>
       </ScrollView>
+
+      <ConfirmDialog
+        visible={showLogoutDialog}
+        onClose={() => setShowLogoutDialog(false)}
+        onConfirm={confirmLogout}
+        title="Logout"
+        message="Are you sure you want to logout? You will need to sign in again to access your account."
+        confirmText="Logout"
+        cancelText="Cancel"
+        type="danger"
+      />
     </View>
   );
 }

@@ -2,8 +2,9 @@
  * Reusable Button component
  */
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { theme } from '../theme';
+import { getResponsiveFontSizes } from '../utils/responsive';
 
 export default function Button({ 
   title, 
@@ -16,6 +17,10 @@ export default function Button({
   style,
   textStyle 
 }) {
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 375;
+  const fontSizes = getResponsiveFontSizes();
+
   const getVariantStyle = () => {
     switch (variant) {
       case 'primary':
@@ -47,15 +52,33 @@ export default function Button({
   };
 
   const getSizeStyle = () => {
+    const baseStyles = {
+      small: {
+        paddingVertical: isSmallScreen ? 8 : theme.spacing.sm,
+        paddingHorizontal: isSmallScreen ? 12 : theme.spacing.md,
+      },
+      medium: {
+        paddingVertical: isSmallScreen ? 12 : theme.spacing.md,
+        paddingHorizontal: isSmallScreen ? 16 : theme.spacing.lg,
+      },
+      large: {
+        paddingVertical: isSmallScreen ? 14 : 18,
+        paddingHorizontal: isSmallScreen ? 20 : theme.spacing.xl,
+      },
+    };
+    return baseStyles[size] || baseStyles.medium;
+  };
+
+  const getTextSize = () => {
     switch (size) {
       case 'small':
-        return styles.smallButton;
+        return fontSizes.sm;
       case 'medium':
-        return styles.mediumButton;
+        return fontSizes.md;
       case 'large':
-        return styles.largeButton;
+        return fontSizes.lg;
       default:
-        return styles.mediumButton;
+        return fontSizes.md;
     }
   };
 
@@ -77,7 +100,7 @@ export default function Button({
       ) : (
         <>
           {icon && icon}
-          <Text style={[styles.text, getTextStyle(), textStyle]}>
+          <Text style={[styles.text, getTextStyle(), { fontSize: getTextSize() }, textStyle]}>
             {title}
           </Text>
         </>
@@ -113,23 +136,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   
-  // Sizes
-  smallButton: {
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-  },
-  mediumButton: {
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-  },
-  largeButton: {
-    paddingVertical: 18,
-    paddingHorizontal: theme.spacing.xl,
-  },
-  
   // Text styles
   text: {
-    fontSize: theme.typography.fontSize.md,
     fontWeight: theme.typography.fontWeight.semibold,
   },
   primaryText: {

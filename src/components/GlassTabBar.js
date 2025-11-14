@@ -123,10 +123,9 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: 'rgba(18, 18, 18, 0.98)',
     borderRadius: 100,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     overflow: 'hidden',
-    ...theme.shadow.xl,
   },
   tabsContainer: {
     flex: 1,
@@ -154,7 +153,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.98)',
     borderColor: 'rgba(255, 255, 255, 0.2)',
     transform: [{ scale: 1.08 }],
-    ...theme.shadow.md,
   },
   
   // Profile with red ring - same size as other icons

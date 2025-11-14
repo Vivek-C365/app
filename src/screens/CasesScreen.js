@@ -9,9 +9,15 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import AnimalCard from '../components/AnimalCard';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ConfirmDialog from '../components/ConfirmDialog';
+import BottomSheet from '../components/BottomSheet';
+import GlassButton from '../components/GlassButton';
 
 export default function CasesScreen() {
   const [loading] = useState(false);
+  const [showHelpDialog, setShowHelpDialog] = useState(false);
+  const [showDetailsSheet, setShowDetailsSheet] = useState(false);
+  const [selectedCase, setSelectedCase] = useState(null);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 375;
@@ -54,21 +60,17 @@ export default function CasesScreen() {
   ];
 
   const handleHelpCase = (caseId) => {
-    Alert.alert(
-      'Respond to Case',
-      `Do you want to help with case ${caseId}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Yes, I can help', 
-          onPress: () => Alert.alert('Success', 'You have been assigned to this case!')
-        }
-      ]
-    );
+    setSelectedCase(caseId);
+    setShowHelpDialog(true);
+  };
+
+  const confirmHelp = () => {
+    Alert.alert('Success', 'You have been assigned to this case!');
   };
 
   const handleViewDetails = (caseId) => {
-    Alert.alert('Case Details', `Viewing details for ${caseId}`);
+    setSelectedCase(caseId);
+    setShowDetailsSheet(true);
   };
 
   if (loading) {
@@ -122,6 +124,61 @@ export default function CasesScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <ConfirmDialog
+        visible={showHelpDialog}
+        onClose={() => setShowHelpDialog(false)}
+        onConfirm={confirmHelp}
+        title="Respond to Case"
+        message={`Do you want to help with case ${selectedCase}? You will be notified with the reporter's contact details.`}
+        confirmText="Yes, I Can Help"
+        cancelText="Cancel"
+        type="success"
+      />
+
+      <BottomSheet
+        visible={showDetailsSheet}
+        onClose={() => setShowDetailsSheet(false)}
+        title="Case Details"
+        height="large"
+      >
+        <View style={styles.detailsContent}>
+          <View style={styles.detailRow}>
+            <MaterialIcons name="pets" size={20} color={theme.colors.primary} />
+            <Text style={styles.detailLabel}>Case ID:</Text>
+            <Text style={styles.detailValue}>{selectedCase}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <MaterialIcons name="place" size={20} color={theme.colors.primary} />
+            <Text style={styles.detailLabel}>Location:</Text>
+            <Text style={styles.detailValue}>Andheri West, Mumbai</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <MaterialIcons name="person" size={20} color={theme.colors.primary} />
+            <Text style={styles.detailLabel}>Reporter:</Text>
+            <Text style={styles.detailValue}>Rahul S.</Text>
+          </View>
+
+          <View style={styles.detailSection}>
+            <Text style={styles.detailSectionTitle}>Description</Text>
+            <Text style={styles.detailDescription}>
+              Dog found injured on the street. Appears to have a leg injury and needs immediate medical attention.
+            </Text>
+          </View>
+
+          <GlassButton
+            title="I Can Help"
+            onPress={() => {
+              setShowDetailsSheet(false);
+              handleHelpCase(selectedCase);
+            }}
+            variant="accent"
+            size="large"
+          />
+        </View>
+      </BottomSheet>
     </View>
   );
 }
@@ -174,5 +231,38 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.textTertiary,
     textAlign: 'center',
+  },
+  detailsContent: {
+    gap: theme.spacing.lg,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+  },
+  detailLabel: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.typography.fontWeight.semibold,
+  },
+  detailValue: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.textPrimary,
+    flex: 1,
+  },
+  detailSection: {
+    marginTop: theme.spacing.md,
+  },
+  detailSectionTitle: {
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.textPrimary,
+    marginBottom: theme.spacing.sm,
+  },
+  detailDescription: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.textSecondary,
+    lineHeight: 22,
   },
 });

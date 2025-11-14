@@ -2,8 +2,9 @@
  * Glass Button component with iOS-style glassmorphism effect
  */
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View, useWindowDimensions } from 'react-native';
 import { theme } from '../theme';
+import { getResponsiveFontSizes } from '../utils/responsive';
 
 export default function GlassButton({ 
   title, 
@@ -17,33 +18,56 @@ export default function GlassButton({
   textStyle,
   intensity = 80
 }) {
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 375;
+  const isMediumScreen = width >= 375 && width < 414;
+  const fontSizes = getResponsiveFontSizes();
+
   const getVariantStyle = () => {
     switch (variant) {
       case 'primary':
-        return { bg: theme.colors.primary, border: theme.colors.primary, text: theme.colors.white };
+        return { bg: theme.colors.primary, text: theme.colors.white };
       case 'secondary':
-        return { bg: theme.colors.secondary, border: theme.colors.secondary, text: theme.colors.white };
+        return { bg: theme.colors.secondary, text: theme.colors.white };
       case 'accent':
-        return { bg: theme.colors.accent, border: theme.colors.accent, text: theme.colors.white };
+        return { bg: theme.colors.accent, text: theme.colors.white };
       case 'success':
-        return { bg: theme.colors.success, border: theme.colors.success, text: theme.colors.white };
+        return { bg: theme.colors.success, text: theme.colors.white };
       case 'light':
-        return { bg: 'rgba(28, 28, 30, 0.8)', border: 'rgba(255, 255, 255, 0.1)', text: theme.colors.textPrimary };
+        return { bg: 'rgba(60, 60, 60, 0.5)', text: theme.colors.textPrimary };
       default:
-        return { bg: 'rgba(28, 28, 30, 0.6)', border: 'rgba(255, 255, 255, 0.1)', text: theme.colors.textPrimary };
+        return { bg: 'rgba(44, 44, 46, 0.8)', text: theme.colors.textPrimary };
     }
   };
 
   const getSizeStyle = () => {
+    const baseStyles = {
+      small: {
+        paddingVertical: isSmallScreen ? 8 : 10,
+        paddingHorizontal: isSmallScreen ? 12 : 16,
+      },
+      medium: {
+        paddingVertical: isSmallScreen ? 12 : 14,
+        paddingHorizontal: isSmallScreen ? 16 : 20,
+      },
+      large: {
+        paddingVertical: isSmallScreen ? 14 : 18,
+        paddingHorizontal: isSmallScreen ? 20 : 24,
+      },
+    };
+    return baseStyles[size] || baseStyles.medium;
+  };
+
+  const getTextSize = () => {
     switch (size) {
       case 'small':
-        return styles.smallButton;
+        return fontSizes.sm;
       case 'medium':
-        return styles.mediumButton;
+        return fontSizes.md;
       case 'large':
-        return styles.largeButton;
+        return fontSizes.lg;
       default:
-        return styles.mediumButton;
+        return fontSizes.md;
     }
   };
 
@@ -62,7 +86,6 @@ export default function GlassButton({
           getSizeStyle(),
           { 
             backgroundColor: variantConfig.bg,
-            borderColor: variantConfig.border,
           }
         ]}
       >
@@ -71,7 +94,14 @@ export default function GlassButton({
         ) : (
           <View style={styles.content}>
             {icon && icon}
-            <Text style={[styles.text, { color: variantConfig.text }, textStyle]}>
+            <Text style={[
+              styles.text, 
+              { 
+                color: variantConfig.text,
+                fontSize: getTextSize(),
+              }, 
+              textStyle
+            ]}>
               {title}
             </Text>
           </View>
@@ -86,7 +116,6 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginBottom: theme.spacing.md,
-    ...theme.shadow.sm,
   },
   glass: {
     borderWidth: 0,
@@ -99,23 +128,8 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   
-  // Sizes
-  smallButton: {
-    paddingVertical: theme.spacing.sm + 2,
-    paddingHorizontal: theme.spacing.md,
-  },
-  mediumButton: {
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-  },
-  largeButton: {
-    paddingVertical: theme.spacing.md + 4,
-    paddingHorizontal: theme.spacing.xl,
-  },
-  
   // Text
   text: {
-    fontSize: theme.typography.fontSize.md,
     fontWeight: theme.typography.fontWeight.semibold,
     letterSpacing: 0.3,
   },

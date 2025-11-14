@@ -98,7 +98,8 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl + 4,
     backgroundColor: theme.colors.surface,
     overflow: 'hidden',
-    ...theme.shadow.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   imageContainer: {
     position: 'relative',

@@ -16,6 +16,7 @@ export { default as StatusBadge } from './StatusBadge';
 export { default as GlassCard } from './GlassCard';
 export { default as GlassButton } from './GlassButton';
 export { default as GlassInput } from './GlassInput';
+export { default as GlassSelect } from './GlassSelect';
 export { default as GlassBackground } from './GlassBackground';
 export { default as GlassTabBar } from './GlassTabBar';
 export { default as AnimalCard } from './AnimalCard';

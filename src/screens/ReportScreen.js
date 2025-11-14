@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import GlassInput from '../components/GlassInput';
+import GlassSelect from '../components/GlassSelect';
 import GlassButton from '../components/GlassButton';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -84,18 +85,90 @@ export default function ReportScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Animal Information</Text>
           
-          <GlassInput
+          <GlassSelect
             label="Animal Type"
-            placeholder="Dog, Cat, Bird, Cow..."
+            placeholder="Select animal type"
             value={animalType}
-            onChangeText={setAnimalType}
+            onValueChange={setAnimalType}
+            icon={<MaterialIcons name="pets" size={20} color={theme.colors.textSecondary} />}
+            options={[
+              { 
+                value: 'dog', 
+                label: 'Dog', 
+                icon: <MaterialIcons name="pets" size={24} color={theme.colors.primary} />,
+                description: 'Domestic dog or stray'
+              },
+              { 
+                value: 'cat', 
+                label: 'Cat',
+                icon: <MaterialIcons name="pets" size={24} color={theme.colors.primary} />,
+                description: 'Domestic cat or stray'
+              },
+              { 
+                value: 'bird', 
+                label: 'Bird',
+                icon: <MaterialIcons name="flutter-dash" size={24} color={theme.colors.primary} />,
+                description: 'Any bird species'
+              },
+              { 
+                value: 'cow', 
+                label: 'Cow/Buffalo',
+                icon: <MaterialIcons name="pets" size={24} color={theme.colors.primary} />,
+                description: 'Cattle or buffalo'
+              },
+              { 
+                value: 'other', 
+                label: 'Other',
+                icon: <MaterialIcons name="pets" size={24} color={theme.colors.primary} />,
+                description: 'Other animal types'
+              },
+            ]}
           />
 
-          <GlassInput
+          <GlassSelect
             label="Condition"
-            placeholder="Injured, Sick, Trapped..."
+            placeholder="Select condition"
             value={condition}
-            onChangeText={setCondition}
+            onValueChange={setCondition}
+            icon={<MaterialIcons name="medical-services" size={20} color={theme.colors.textSecondary} />}
+            options={[
+              { 
+                value: 'injured', 
+                label: 'Injured',
+                icon: <MaterialIcons name="healing" size={24} color={theme.colors.error} />,
+                description: 'Physical injury or wound'
+              },
+              { 
+                value: 'sick', 
+                label: 'Sick',
+                icon: <MaterialIcons name="sick" size={24} color={theme.colors.warning} />,
+                description: 'Appears ill or unwell'
+              },
+              { 
+                value: 'trapped', 
+                label: 'Trapped',
+                icon: <MaterialIcons name="lock" size={24} color={theme.colors.error} />,
+                description: 'Stuck or confined'
+              },
+              { 
+                value: 'lost', 
+                label: 'Lost',
+                icon: <MaterialIcons name="explore" size={24} color={theme.colors.secondary} />,
+                description: 'Appears lost or abandoned'
+              },
+              { 
+                value: 'aggressive', 
+                label: 'Aggressive/Dangerous',
+                icon: <MaterialIcons name="warning" size={24} color={theme.colors.error} />,
+                description: 'Showing aggressive behavior'
+              },
+              { 
+                value: 'starving', 
+                label: 'Starving',
+                icon: <MaterialIcons name="restaurant" size={24} color={theme.colors.warning} />,
+                description: 'Malnourished or hungry'
+              },
+            ]}
           />
 
           <GlassInput

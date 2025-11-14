@@ -8,6 +8,8 @@ import GlassTabBar from '../components/GlassTabBar';
 import TabIcon from '../components/TabIcon';
 import ReportScreen from '../screens/ReportScreen';
 import CasesScreen from '../screens/CasesScreen';
+import SearchScreen from '../screens/SearchScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
@@ -43,7 +45,7 @@ export default function TabNavigator() {
       />
       <Tab.Screen
         name="Search"
-        component={CasesScreen}
+        component={SearchScreen}
         options={{
           title: 'Search',
           headerShown: false,
@@ -61,7 +63,7 @@ export default function TabNavigator() {
       />
       <Tab.Screen
         name="Notifications"
-        component={CasesScreen}
+        component={NotificationsScreen}
         options={{
           title: 'Notifications',
           headerShown: false,

@@ -1,7 +1,7 @@
 /**
  * Bottom Sheet component with Material Design styling
  */
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Dimensions, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
@@ -96,9 +96,13 @@ export default function BottomSheet({
             </View>
           )}
 
-          <View style={styles.content}>
+          <ScrollView 
+            style={styles.content}
+            showsVerticalScrollIndicator={false}
+            bounces={true}
+          >
             {children}
-          </View>
+          </ScrollView>
         </Animated.View>
       </View>
     </Modal>
@@ -158,6 +162,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.xl,
   },
 });

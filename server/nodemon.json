@@ -1,0 +1,17 @@
+{
+  "watch": [
+    "."
+  ],
+  "ext": "js,json",
+  "ignore": [
+    "node_modules/",
+    "test/",
+    "coverage/",
+    "logs/",
+    "uploads/"
+  ],
+  "exec": "node index.js",
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "Animal Rescue",
+    "slug": "animal-rescue-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.animalrescue.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to your camera to take photos of animals in distress.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select photos of animals.",
+        "NSLocationWhenInUseUsageDescription": "This app needs your location to match you with nearby volunteers and animals in need.",
+        "NSLocationAlwaysUsageDescription": "This app needs your location to notify you of nearby animal emergencies even when the app is closed."
+      }
+    },
+    "android": {
+      "package": "com.animalrescue.mobile",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Animal Rescue to access your camera to take photos of animals in distress."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Animal Rescue to use your location to match you with nearby volunteers and animals in need.",
+          "locationAlwaysPermission": "Allow Animal Rescue to use your location to notify you of nearby animal emergencies.",
+          "locationWhenInUsePermission": "Allow Animal Rescue to use your location to match you with nearby volunteers and animals in need.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#FF6B35"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "animal-rescue-mobile"
+      }
+    }
+  }
+}

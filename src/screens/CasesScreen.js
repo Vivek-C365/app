@@ -3,43 +3,53 @@
  * Displays active rescue cases
  */
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, useWindowDimensions, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
-import Card from '../components/Card';
-import Button from '../components/Button';
+import AnimalCard from '../components/AnimalCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function CasesScreen() {
   const [loading] = useState(false);
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 375;
   
   // Mock data - will be replaced with API call
   const cases = [
     { 
-      id: 'AR-2024-001', 
+      id: 'AR-2024-001',
+      name: 'Archie',
       type: 'Dog', 
       status: 'Active', 
       location: 'Andheri West, Mumbai', 
       time: '2h ago',
-      condition: 'Injured',
-      reporter: 'Rahul S.'
+      condition: 'Injured leg, needs immediate care',
+      reporter: 'Rahul S.',
+      imageUrl: null
     },
     { 
-      id: 'AR-2024-002', 
-      type: 'Cat', 
-      status: 'Volunteer Assigned', 
+      id: 'AR-2024-002',
+      name: 'Sunny',
+      type: 'Bird', 
+      status: 'Assigned', 
       location: 'Connaught Place, Delhi', 
       time: '5h ago',
-      condition: 'Sick',
-      reporter: 'Priya M.'
+      condition: 'Sitting on a twig, what a cutie isn\'t he?',
+      reporter: 'Priya M.',
+      imageUrl: null
     },
     { 
-      id: 'AR-2024-003', 
-      type: 'Bird', 
+      id: 'AR-2024-003',
+      name: 'Shadow',
+      type: 'Cat', 
       status: 'Active', 
       location: 'Koramangala, Bangalore', 
       time: '1d ago',
-      condition: 'Trapped',
-      reporter: 'Amit K.'
+      condition: 'Trapped in building, scared',
+      reporter: 'Amit K.',
+      imageUrl: null
     },
   ];
 
@@ -61,70 +71,58 @@ export default function CasesScreen() {
     Alert.alert('Case Details', `Viewing details for ${caseId}`);
   };
 
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case 'Active':
-        return styles.statusActive;
-      case 'Volunteer Assigned':
-        return styles.statusAssigned;
-      case 'Resolved':
-        return styles.statusResolved;
-      default:
-        return styles.statusActive;
-    }
-  };
-
   if (loading) {
     return <LoadingSpinner fullScreen message="Loading cases..." />;
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Active Rescue Cases</Text>
-        <Text style={styles.subtitle}>Cases near you that need help</Text>
-      </View>
-
-      {cases.map((caseItem) => (
-        <Card key={caseItem.id} style={styles.caseCard}>
-          <View style={styles.caseHeader}>
-            <View>
-              <Text style={styles.caseId}>{caseItem.id}</Text>
-              <Text style={styles.caseType}>
-                {caseItem.type} - {caseItem.condition}
-              </Text>
-            </View>
-            <View style={[styles.statusBadge, getStatusStyle(caseItem.status)]}>
-              <Text style={styles.statusText}>{caseItem.status}</Text>
-            </View>
+    <View style={styles.container}>
+      <ScrollView 
+        contentContainerStyle={[
+          styles.content,
+          { 
+            paddingTop: insets.top + 20,
+            paddingBottom: insets.bottom + 140,
+            paddingHorizontal: isSmallScreen ? theme.spacing.md : theme.spacing.lg,
+          }
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>Animalbook</Text>
+            <Text style={styles.subtitle}>Caring for 4 cats</Text>
           </View>
+          <TouchableOpacity style={styles.addButton}>
+            <MaterialIcons name="add" size={16} color={theme.colors.white} />
+            <Text style={styles.addButtonText}>Add New</Text>
+          </TouchableOpacity>
+        </View>
 
-          <Text style={styles.caseLocation}>📍 {caseItem.location}</Text>
-          <Text style={styles.caseReporter}>👤 Reported by: {caseItem.reporter}</Text>
-          <Text style={styles.caseTime}>⏰ {caseItem.time}</Text>
+        {cases.map((caseItem) => (
+          <AnimalCard
+            key={caseItem.id}
+            id={caseItem.id}
+            name={caseItem.name}
+            type={caseItem.type}
+            status={caseItem.status}
+            location={caseItem.location}
+            time={caseItem.time}
+            condition={caseItem.condition}
+            reporter={caseItem.reporter}
+            imageUrl={caseItem.imageUrl}
+            onPress={() => handleViewDetails(caseItem.id)}
+            onHelp={() => handleHelpCase(caseItem.id)}
+          />
+        ))}
 
-          <View style={styles.caseActions}>
-            <Button
-              title="🆘 I Can Help"
-              onPress={() => handleHelpCase(caseItem.id)}
-              style={styles.helpButton}
-            />
-            <Button
-              title="View Details"
-              onPress={() => handleViewDetails(caseItem.id)}
-              variant="secondary"
-              style={styles.viewButton}
-            />
-          </View>
-        </Card>
-      ))}
-
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyText}>
-          💚 You're viewing cases within 10km radius
-        </Text>
-      </View>
-    </ScrollView>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            💚 Viewing cases within 10km radius
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -133,91 +131,46 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  content: {
+    // Dynamic padding applied inline
+  },
   header: {
-    padding: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: theme.spacing.xl,
   },
   title: {
-    fontSize: theme.typography.fontSize.xl,
+    fontSize: 32,
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.textSecondary,
+    fontWeight: theme.typography.fontWeight.regular,
   },
-  caseCard: {
-    marginHorizontal: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.primary,
-  },
-  caseHeader: {
+  addButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: theme.spacing.md,
+    alignItems: 'center',
+    backgroundColor: theme.colors.accent,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 4,
   },
-  caseId: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.textTertiary,
-    marginBottom: theme.spacing.xs,
-  },
-  caseType: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.textPrimary,
-  },
-  statusBadge: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs + 1,
-    borderRadius: theme.borderRadius.xl,
-  },
-  statusActive: {
-    backgroundColor: theme.colors.statusActive,
-  },
-  statusAssigned: {
-    backgroundColor: theme.colors.statusAssigned,
-  },
-  statusResolved: {
-    backgroundColor: theme.colors.statusResolved,
-  },
-  statusText: {
-    fontSize: theme.typography.fontSize.xs,
+  addButtonText: {
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.textPrimary,
   },
-  caseLocation: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.xs,
-  },
-  caseReporter: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textTertiary,
-    marginBottom: theme.spacing.xs,
-  },
-  caseTime: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textTertiary,
-    marginBottom: theme.spacing.md,
-  },
-  caseActions: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  helpButton: {
-    flex: 2,
-  },
-  viewButton: {
-    flex: 1,
-  },
-  emptyState: {
+  footer: {
     padding: theme.spacing.lg,
     alignItems: 'center',
+    marginTop: theme.spacing.md,
   },
-  emptyText: {
+  footerText: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.textTertiary,
     textAlign: 'center',

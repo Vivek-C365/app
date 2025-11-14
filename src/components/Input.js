@@ -60,9 +60,10 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.textSecondary,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.textPrimary,
     marginBottom: theme.spacing.xs + 2,
+    letterSpacing: 0.5,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -72,12 +73,13 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-    borderRadius: theme.borderRadius.md,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.textPrimary,
+    ...theme.shadow.sm,
   },
   multiline: {
     minHeight: 80,
@@ -101,6 +103,8 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: theme.colors.error,
+    borderWidth: 2,
+    backgroundColor: theme.colors.errorBg,
   },
   disabled: {
     backgroundColor: theme.colors.background,

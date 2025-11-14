@@ -3,11 +3,12 @@
  * Allows users to report animals in need
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
-import Input from '../components/Input';
-import Button from '../components/Button';
-import Card from '../components/Card';
+import GlassInput from '../components/GlassInput';
+import GlassButton from '../components/GlassButton';
 
 export default function ReportScreen() {
   const [animalType, setAnimalType] = useState('');
@@ -18,6 +19,9 @@ export default function ReportScreen() {
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 375;
 
   const handleGetLocation = () => {
     Alert.alert('GPS Location', 'GPS integration will be implemented in the next task');
@@ -50,83 +54,112 @@ export default function ReportScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Card style={styles.card}>
-        <Input
-          label="Animal Type *"
-          placeholder="e.g., Dog, Cat, Bird, Cow"
-          value={animalType}
-          onChangeText={setAnimalType}
-        />
+    <View style={styles.container}>
+      <ScrollView 
+        contentContainerStyle={[
+          styles.scrollContent,
+          { 
+            paddingTop: insets.top + 20,
+            paddingBottom: insets.bottom + 140,
+            paddingHorizontal: isSmallScreen ? theme.spacing.md : theme.spacing.lg,
+          }
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Report Animal</Text>
+          <Text style={styles.subtitle}>Help an animal in need</Text>
+        </View>
 
-        <Input
-          label="Condition *"
-          placeholder="e.g., Injured, Sick, Trapped"
-          value={condition}
-          onChangeText={setCondition}
-        />
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Animal Information</Text>
+          
+          <GlassInput
+            label="Animal Type"
+            placeholder="Dog, Cat, Bird, Cow..."
+            value={animalType}
+            onChangeText={setAnimalType}
+          />
 
-        <Input
-          label="Description"
-          placeholder="Describe the animal's condition..."
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={3}
-        />
+          <GlassInput
+            label="Condition"
+            placeholder="Injured, Sick, Trapped..."
+            value={condition}
+            onChangeText={setCondition}
+          />
 
-        <Input
-          label="Location *"
-          placeholder="Enter address or area"
-          value={location}
-          onChangeText={setLocation}
-        />
+          <GlassInput
+            label="Description"
+            placeholder="Describe what you see..."
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={4}
+          />
+        </View>
 
-        <Button
-          title="📍 Get GPS Location"
-          onPress={handleGetLocation}
-          variant="outline"
-          style={styles.locationButton}
-        />
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Location</Text>
+          
+          <GlassInput
+            label="Address"
+            placeholder="Enter location"
+            value={location}
+            onChangeText={setLocation}
+          />
 
-        <Input
-          label="Nearby Landmark"
-          placeholder="e.g., Near Metro Station, Park"
-          value={landmark}
-          onChangeText={setLandmark}
-        />
+          <GlassButton
+            title="Use Current Location"
+            onPress={handleGetLocation}
+            variant="light"
+            icon={<MaterialIcons name="my-location" size={18} color={theme.colors.textPrimary} />}
+          />
 
-        <Input
-          label="Your Name *"
-          placeholder="Enter your name"
-          value={contactName}
-          onChangeText={setContactName}
-        />
+          <GlassInput
+            label="Landmark (Optional)"
+            placeholder="Near Metro Station, Park..."
+            value={landmark}
+            onChangeText={setLandmark}
+          />
+        </View>
 
-        <Input
-          label="Phone Number *"
-          placeholder="Enter your phone number"
-          value={contactPhone}
-          onChangeText={setContactPhone}
-          keyboardType="phone-pad"
-        />
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Your Contact</Text>
+          
+          <GlassInput
+            label="Name"
+            placeholder="Your name"
+            value={contactName}
+            onChangeText={setContactName}
+          />
 
-        <Button
-          title="📷 Add Photos"
-          onPress={handleTakePhoto}
-          variant="outline"
-          style={styles.photoButton}
-        />
+          <GlassInput
+            label="Phone Number"
+            placeholder="+91 XXXXX XXXXX"
+            value={contactPhone}
+            onChangeText={setContactPhone}
+            keyboardType="phone-pad"
+          />
+        </View>
 
-        <Button
-          title="🚨 Submit Emergency Report"
+        <View style={styles.section}>
+          <GlassButton
+            title="Add Photos"
+            onPress={handleTakePhoto}
+            variant="light"
+            icon={<MaterialIcons name="add-a-photo" size={18} color={theme.colors.textPrimary} />}
+          />
+        </View>
+
+        <GlassButton
+          title="Submit Report"
           onPress={handleSubmit}
           loading={loading}
+          variant="accent"
           size="large"
-          style={styles.submitButton}
         />
-      </Card>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -135,16 +168,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  card: {
-    margin: theme.spacing.md,
+  scrollContent: {
+    // Dynamic padding applied inline
   },
-  locationButton: {
+  header: {
+    marginBottom: theme.spacing.xl,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.textPrimary,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.typography.fontWeight.regular,
+  },
+  section: {
+    marginBottom: theme.spacing.xl,
+  },
+  sectionTitle: {
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.textPrimary,
     marginBottom: theme.spacing.md,
   },
-  photoButton: {
-    marginBottom: theme.spacing.lg,
-  },
-  submitButton: {
-    marginTop: theme.spacing.md,
-  },
+
 });

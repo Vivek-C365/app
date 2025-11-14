@@ -95,15 +95,14 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   
-  // Variants
+  // Variants - Rich colors
   primaryButton: {
     backgroundColor: theme.colors.primary,
-    ...theme.shadow.md,
+    ...theme.shadow.lg,
   },
   secondaryButton: {
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.secondary,
+    ...theme.shadow.md,
   },
   outlineButton: {
     backgroundColor: 'transparent',
@@ -134,10 +133,10 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.semibold,
   },
   primaryText: {
-    color: theme.colors.white,
+    color: theme.colors.textInverse,
   },
   secondaryText: {
-    color: theme.colors.textPrimary,
+    color: theme.colors.textInverse,
   },
   outlineText: {
     color: theme.colors.primary,

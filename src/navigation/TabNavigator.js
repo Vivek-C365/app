@@ -2,10 +2,10 @@
  * Bottom Tab Navigator
  * Main navigation for the app
  */
-import React from 'react';
-import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { theme } from '../theme';
+import GlassTabBar from '../components/GlassTabBar';
+import TabIcon from '../components/TabIcon';
 import ReportScreen from '../screens/ReportScreen';
 import CasesScreen from '../screens/CasesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -15,61 +15,66 @@ const Tab = createBottomTabNavigator();
 export default function TabNavigator() {
   return (
     <Tab.Navigator
+      tabBar={props => <GlassTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textTertiary,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
-          borderTopWidth: 1,
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 60,
-        },
-        tabBarLabelStyle: {
-          fontSize: theme.typography.fontSize.xs,
-          fontWeight: theme.typography.fontWeight.semibold,
-        },
         headerStyle: {
-          backgroundColor: theme.colors.primary,
+          backgroundColor: theme.colors.surface,
           elevation: 0,
           shadowOpacity: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.border,
         },
-        headerTintColor: theme.colors.white,
+        headerTintColor: theme.colors.textPrimary,
         headerTitleStyle: {
           fontSize: theme.typography.fontSize.lg,
           fontWeight: theme.typography.fontWeight.bold,
+          letterSpacing: 0.5,
         },
       }}
     >
       <Tab.Screen
-        name="Report"
-        component={ReportScreen}
-        options={{
-          title: '🐾 Report Animal',
-          tabBarIcon: ({ size }) => (
-            <Text style={{ fontSize: size * 1.2 }}>📝</Text>
-          ),
-        }}
-      />
-      <Tab.Screen
         name="Cases"
         component={CasesScreen}
         options={{
-          title: '🐾 Active Cases',
-          tabBarIcon: ({ size }) => (
-            <Text style={{ fontSize: size * 1.2 }}>📋</Text>
-          ),
+          title: 'Animalbook',
+          headerShown: false,
+          tabBarIcon: (props) => <TabIcon icon="home" {...props} />,
+        }}
+      />
+      <Tab.Screen
+        name="Search"
+        component={CasesScreen}
+        options={{
+          title: 'Search',
+          headerShown: false,
+          tabBarIcon: (props) => <TabIcon icon="search" {...props} />,
+        }}
+      />
+      <Tab.Screen
+        name="Report"
+        component={ReportScreen}
+        options={{
+          title: 'Report Animal',
+          headerShown: false,
+          tabBarIcon: (props) => <TabIcon icon="add" {...props} />,
+        }}
+      />
+      <Tab.Screen
+        name="Notifications"
+        component={CasesScreen}
+        options={{
+          title: 'Notifications',
+          headerShown: false,
+          tabBarIcon: (props) => <TabIcon icon="bell" {...props} />,
         }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
-          title: '🐾 My Profile',
-          tabBarIcon: ({ size }) => (
-            <Text style={{ fontSize: size * 1.2 }}>👤</Text>
-          ),
+          title: 'My Profile',
+          headerShown: false,
+          tabBarIcon: (props) => <TabIcon icon="user" {...props} />,
         }}
       />
     </Tab.Navigator>

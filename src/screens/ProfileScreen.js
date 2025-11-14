@@ -3,15 +3,20 @@
  * User profile and settings
  */
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Switch } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, Switch, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
-import Card from '../components/Card';
-import Button from '../components/Button';
+import GlassCard from '../components/GlassCard';
+import GlassButton from '../components/GlassButton';
 
 export default function ProfileScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 375;
 
   // Mock user data
   const user = {
@@ -42,59 +47,84 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
-            {user.name.split(' ').map(n => n[0]).join('')}
-          </Text>
+    <View style={styles.container}>
+      <ScrollView 
+        contentContainerStyle={[
+          styles.scrollContent,
+          { 
+            paddingTop: insets.top + 20,
+            paddingBottom: insets.bottom + 140 
+          }
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View style={styles.avatarContainer}>
+            <Text style={styles.avatarText}>
+              {user.name.split(' ').map(n => n[0]).join('')}
+            </Text>
+          </View>
+          <Text style={styles.userName}>{user.name}</Text>
+          <View style={styles.userTypeContainer}>
+            <Text style={styles.userType}>{user.userType}</Text>
+            {user.verified && <Text style={styles.verifiedBadge}>✓ Verified</Text>}
+          </View>
         </View>
-        <Text style={styles.userName}>{user.name}</Text>
-        <View style={styles.userTypeContainer}>
-          <Text style={styles.userType}>{user.userType}</Text>
-          {user.verified && <Text style={styles.verifiedBadge}>✓ Verified</Text>}
-        </View>
-      </View>
 
-      <Card style={styles.statsCard}>
+        <GlassCard variant="primary" intensity={85} style={styles.statsCard}>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
+            <MaterialIcons name="pets" size={24} color={theme.colors.primary} />
             <Text style={styles.statValue}>{user.casesHelped}</Text>
             <Text style={styles.statLabel}>Cases Helped</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
+            <MaterialIcons name="star" size={24} color={theme.colors.primary} />
             <Text style={styles.statValue}>4.8</Text>
             <Text style={styles.statLabel}>Rating</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
+            <MaterialIcons name="assignment" size={24} color={theme.colors.primary} />
             <Text style={styles.statValue}>2</Text>
             <Text style={styles.statLabel}>Active Cases</Text>
           </View>
         </View>
-      </Card>
+      </GlassCard>
 
-      <Card style={styles.section}>
+      <GlassCard variant="light" intensity={80} style={styles.section}>
         <Text style={styles.sectionTitle}>Contact Information</Text>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Email</Text>
+          <View style={styles.infoLabelContainer}>
+            <MaterialIcons name="email" size={18} color={theme.colors.textSecondary} />
+            <Text style={styles.infoLabel}>Email</Text>
+          </View>
           <Text style={styles.infoValue}>{user.email}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Phone</Text>
+          <View style={styles.infoLabelContainer}>
+            <MaterialIcons name="phone" size={18} color={theme.colors.textSecondary} />
+            <Text style={styles.infoLabel}>Phone</Text>
+          </View>
           <Text style={styles.infoValue}>{user.phone}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Member Since</Text>
+          <View style={styles.infoLabelContainer}>
+            <MaterialIcons name="calendar-today" size={18} color={theme.colors.textSecondary} />
+            <Text style={styles.infoLabel}>Member Since</Text>
+          </View>
           <Text style={styles.infoValue}>{user.joinedDate}</Text>
         </View>
-      </Card>
+      </GlassCard>
 
-      <Card style={styles.section}>
+      <GlassCard variant="secondary" intensity={80} style={styles.section}>
         <Text style={styles.sectionTitle}>Notification Preferences</Text>
         
         <View style={styles.settingRow}>
+          <View style={styles.settingIconContainer}>
+            <MaterialIcons name="notifications" size={20} color={theme.colors.textSecondary} />
+          </View>
           <View style={styles.settingInfo}>
             <Text style={styles.settingLabel}>Push Notifications</Text>
             <Text style={styles.settingDescription}>
@@ -110,6 +140,9 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.settingRow}>
+          <View style={styles.settingIconContainer}>
+            <MaterialIcons name="chat" size={20} color={theme.colors.textSecondary} />
+          </View>
           <View style={styles.settingInfo}>
             <Text style={styles.settingLabel}>WhatsApp Notifications</Text>
             <Text style={styles.settingDescription}>
@@ -125,6 +158,9 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.settingRow}>
+          <View style={styles.settingIconContainer}>
+            <MaterialIcons name="email" size={20} color={theme.colors.textSecondary} />
+          </View>
           <View style={styles.settingInfo}>
             <Text style={styles.settingLabel}>Email Notifications</Text>
             <Text style={styles.settingDescription}>
@@ -138,23 +174,26 @@ export default function ProfileScreen() {
             thumbColor={emailEnabled ? theme.colors.primary : theme.colors.textTertiary}
           />
         </View>
-      </Card>
+      </GlassCard>
 
       <View style={styles.actions}>
-        <Button
+        <GlassButton
           title="Edit Profile"
           onPress={handleEditProfile}
-          variant="outline"
+          variant="primary"
           style={styles.actionButton}
+          intensity={80}
         />
-        <Button
+        <GlassButton
           title="Logout"
           onPress={handleLogout}
-          variant="ghost"
+          variant="light"
           style={styles.actionButton}
+          intensity={75}
         />
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -163,10 +202,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  scrollContent: {
+    // Dynamic padding applied inline
+  },
   header: {
     alignItems: 'center',
     padding: theme.spacing.xl,
-    backgroundColor: theme.colors.surface,
+    paddingTop: theme.spacing.lg,
   },
   avatarContainer: {
     width: 80,
@@ -217,6 +259,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.xl,
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.primary,
+    marginTop: theme.spacing.xs,
     marginBottom: theme.spacing.xs,
   },
   statLabel: {
@@ -240,9 +283,15 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+  },
+  infoLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
   },
   infoLabel: {
     fontSize: theme.typography.fontSize.md,
@@ -255,15 +304,18 @@ const styles = StyleSheet.create({
   },
   settingRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    gap: theme.spacing.md,
+  },
+  settingIconContainer: {
+    width: 32,
+    alignItems: 'center',
   },
   settingInfo: {
     flex: 1,
-    marginRight: theme.spacing.md,
   },
   settingLabel: {
     fontSize: theme.typography.fontSize.md,
@@ -282,5 +334,6 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     width: '100%',
+    marginBottom: 0,
   },
 });

@@ -19,11 +19,12 @@ const server = http.createServer(app);
 // Trust proxy - required for ngrok and other reverse proxies
 app.set('trust proxy', 1);
 
-// Socket.io setup
+// Socket.io setup with flexible CORS for mobile apps
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:8081',
-    methods: ['GET', 'POST']
+    origin: '*', // Allow all origins for mobile apps
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
@@ -31,13 +32,28 @@ const io = new Server(server, {
 app.set('io', io);
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// CORS configuration - Allow all origins for mobile apps
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:8081',
-  credentials: true
+  origin: '*', // Allow all origins for mobile apps
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.path}`, {
+    ip: req.ip,
+    userAgent: req.get('user-agent')
+  });
+  next();
+});
 
 // Rate limiting
 const limiter = rateLimit({
@@ -52,7 +68,19 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV 
+    environment: process.env.NODE_ENV,
+    cors: 'enabled',
+    mongodb: 'connected'
+  });
+});
+
+// Test endpoint for mobile connectivity
+app.get('/api/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API is reachable',
+    timestamp: new Date().toISOString(),
+    headers: req.headers
   });
 });
 

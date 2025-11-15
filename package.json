@@ -13,7 +13,10 @@
     "docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
     "docker:down": "docker-compose -f docker-compose.dev.yml down",
     "docker:logs": "docker-compose -f docker-compose.dev.yml logs -f",
-    "verify": "node verify-setup.js"
+    "verify": "node verify-setup.js",
+    "build:android": "eas build --platform android --profile production",
+    "build:android:local": "eas build --platform android --profile production --local",
+    "build:status": "eas build:list"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

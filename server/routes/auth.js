@@ -5,8 +5,8 @@
 
 const express = require('express');
 const { User } = require('../models');
+const PasswordReset = require('../models/PasswordReset');
 const { generateToken, generateResetToken, verifyResetToken } = require('../utils/auth');
-const { cache } = require('../config/redis');
 const { authenticate } = require('../middleware/auth');
 const {
   validateRegistration,
@@ -60,9 +60,6 @@ router.post('/register', validateRegistration, async (req, res) => {
     
     // Generate token
     const token = generateToken(user);
-    
-    // Cache user
-    await cache.set(`user:${user._id}`, user.toProfileJSON(), 300);
     
     logger.info(`New user registered: ${user.email} (${userType})`);
     
@@ -139,9 +136,6 @@ router.post('/login', validateLogin, async (req, res) => {
     // Generate token
     const token = generateToken(user);
     
-    // Cache user
-    await cache.set(`user:${user._id}`, user.toProfileJSON(), 300);
-    
     logger.info(`User logged in: ${user.email}`);
     
     res.json({
@@ -173,13 +167,6 @@ router.post('/login', validateLogin, async (req, res) => {
 router.post('/logout', authenticate, async (req, res) => {
   try {
     // Blacklist the token
-    const token = req.token;
-    const expiresIn = 7 * 24 * 60 * 60; // 7 days in seconds
-    await cache.set(`blacklist:${token}`, true, expiresIn);
-    
-    // Remove user from cache
-    await cache.del(`user:${req.user._id}`);
-    
     logger.info(`User logged out: ${req.user.email}`);
     
     res.json({
@@ -227,8 +214,12 @@ router.post('/password-reset-request', validatePasswordResetRequest, async (req,
     // Generate reset token
     const resetToken = generateResetToken(user._id);
     
-    // Store reset token in Redis with 1 hour expiration
-    await cache.set(`reset:${user._id}`, resetToken, 3600);
+    // Store reset token in MongoDB with 1 hour expiration
+    await PasswordReset.create({
+      userId: user._id,
+      token: resetToken,
+      expiresAt: new Date(Date.now() + 3600000) // 1 hour from now
+    });
     
     // TODO: Send email with reset link (will be implemented in notification service)
     // For now, return the token in response (only for development)
@@ -267,10 +258,14 @@ router.post('/password-reset', validatePasswordReset, async (req, res) => {
     // Verify reset token
     const decoded = verifyResetToken(token);
     
-    // Check if token exists in Redis
-    const storedToken = await cache.get(`reset:${decoded.id}`);
+    // Check if token exists in MongoDB
+    const resetRecord = await PasswordReset.findOne({
+      userId: decoded.id,
+      token: token,
+      expiresAt: { $gt: new Date() }
+    });
     
-    if (!storedToken || storedToken !== token) {
+    if (!resetRecord) {
       return res.status(400).json({
         success: false,
         error: {
@@ -298,11 +293,8 @@ router.post('/password-reset', validatePasswordReset, async (req, res) => {
     user.password = newPassword;
     await user.save();
     
-    // Delete reset token from Redis
-    await cache.del(`reset:${decoded.id}`);
-    
-    // Clear user cache
-    await cache.del(`user:${user._id}`);
+    // Delete reset token from MongoDB
+    await PasswordReset.deleteMany({ userId: user._id });
     
     logger.info(`Password reset completed for: ${user.email}`);
     
@@ -389,9 +381,6 @@ router.post('/change-password', authenticate, validatePasswordChange, async (req
     // Update password
     user.password = newPassword;
     await user.save();
-    
-    // Clear user cache
-    await cache.del(`user:${user._id}`);
     
     logger.info(`Password changed for: ${user.email}`);
     
@@ -509,9 +498,6 @@ router.post('/google', async (req, res) => {
 
     // Generate JWT token
     const token = generateToken(user);
-
-    // Cache user
-    await cache.set(`user:${user._id}`, user.toProfileJSON(), 300);
 
     logger.info(`Google login via Firebase: ${email}`);
 

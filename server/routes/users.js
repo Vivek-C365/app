@@ -5,7 +5,6 @@
 
 const express = require('express');
 const { User } = require('../models');
-const { cache } = require('../config/redis');
 const { authenticate, authorize } = require('../middleware/auth');
 const { validateProfileUpdate } = require('../middleware/validation');
 const logger = require('../utils/logger');

@@ -5,7 +5,6 @@
 
 const { verifyToken } = require('../utils/auth');
 const { User } = require('../models');
-const { cache } = require('../config/redis');
 const logger = require('../utils/logger');
 
 /**

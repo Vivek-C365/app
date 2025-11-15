@@ -11,7 +11,6 @@ const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
 const { connectDatabase } = require('./config/database');
-const { connectRedis } = require('./config/redis');
 const logger = require('./utils/logger');
 
 const app = express();
@@ -127,9 +126,6 @@ async function startServer() {
     // Connect to MongoDB
     await connectDatabase();
     
-    // Connect to Redis
-    await connectRedis();
-    
     // Start listening only if not in test environment
     if (process.env.NODE_ENV !== 'test') {
       server.listen(PORT, '0.0.0.0', () => {
@@ -166,9 +162,8 @@ process.on('SIGINT', () => {
 if (process.env.NODE_ENV !== 'test') {
   startServer();
 } else {
-  // In test mode, just connect to database and redis
+  // In test mode, just connect to database
   connectDatabase();
-  connectRedis();
 }
 
 module.exports = { app, server, io };

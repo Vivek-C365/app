@@ -32,41 +32,18 @@ async function authenticate(req, res, next) {
     // Verify token
     const decoded = verifyToken(token);
     
-    // Check if token is blacklisted (for logout functionality)
-    const isBlacklisted = await cache.exists(`blacklist:${token}`);
-    if (isBlacklisted) {
+    // Get user from database
+    const user = await User.findById(decoded.id).select('-password');
+    
+    if (!user) {
       return res.status(401).json({
         success: false,
         error: {
-          code: 'TOKEN_REVOKED',
-          message: 'Token has been revoked'
+          code: 'USER_NOT_FOUND',
+          message: 'User not found'
         },
         timestamp: new Date().toISOString()
       });
-    }
-    
-    // Try to get user from cache first
-    const cacheKey = `user:${decoded.id}`;
-    let user = await cache.get(cacheKey);
-    
-    if (!user) {
-      // Get user from database
-      user = await User.findById(decoded.id).select('-password');
-      
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          error: {
-            code: 'USER_NOT_FOUND',
-            message: 'User not found'
-          },
-          timestamp: new Date().toISOString()
-        });
-      }
-      
-      // Cache user profile for 5 minutes
-      await cache.set(cacheKey, user.toProfileJSON(), 300);
-      user = user.toProfileJSON();
     }
     
     // Check if user is active
@@ -82,7 +59,7 @@ async function authenticate(req, res, next) {
     }
     
     // Attach user to request
-    req.user = user;
+    req.user = user.toProfileJSON();
     req.token = token;
     
     next();
@@ -169,25 +146,11 @@ async function optionalAuth(req, res, next) {
     const token = authHeader.substring(7);
     const decoded = verifyToken(token);
     
-    // Check if token is blacklisted
-    const isBlacklisted = await cache.exists(`blacklist:${token}`);
-    if (isBlacklisted) {
-      return next();
-    }
-    
-    // Try to get user from cache
-    const cacheKey = `user:${decoded.id}`;
-    let user = await cache.get(cacheKey);
-    
-    if (!user) {
-      user = await User.findById(decoded.id).select('-password');
-      if (user && user.isActive) {
-        await cache.set(cacheKey, user, 300);
-      }
-    }
+    // Get user from database
+    const user = await User.findById(decoded.id).select('-password');
     
     if (user && user.isActive) {
-      req.user = user;
+      req.user = user.toProfileJSON();
       req.token = token;
     }
     

@@ -2,8 +2,8 @@
  * Profile Screen
  * User profile and settings
  */
-import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Switch } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, ScrollView, StyleSheet, Alert, Switch, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,6 +11,9 @@ import { theme } from '../theme';
 import GlassCard from '../components/GlassCard';
 import GlassButton from '../components/GlassButton';
 import ConfirmDialog from '../components/ConfirmDialog';
+import LoadingSpinner from '../components/LoadingSpinner';
+import apiService from '../../services/api';
+import toast from '../utils/toast';
 
 export default function ProfileScreen() {
   const { user, logout, biometricEnabled, biometricAvailable, enableBiometric, disableBiometric } = useAuth();
@@ -18,17 +21,100 @@ export default function ProfileScreen() {
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [profileData, setProfileData] = useState(null);
+  const [userStats, setUserStats] = useState({
+    casesHelped: 0,
+    activeCases: 0,
+    rating: 0
+  });
   const insets = useSafeAreaInsets();
 
-  // Use actual user data or fallback to mock data
-  const userData = user || {
-    name: 'Rahul Sharma',
-    email: 'rahul.sharma@example.com',
-    phone: '+91 98765 43210',
-    userType: 'Volunteer',
-    verified: true,
-    casesHelped: 12,
-    joinedDate: 'January 2024',
+  useEffect(() => {
+    fetchProfileData();
+  }, []);
+
+  const fetchProfileData = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.getProfile();
+      
+      if (response.success && response.data) {
+        // The API returns { data: { user: {...} } }
+        const userData = response.data.user || response.data;
+        setProfileData(userData);
+        
+        // Fetch user statistics
+        await fetchUserStats(userData._id || userData.id);
+      }
+    } catch (error) {
+      console.log('Error fetching profile:', error);
+      // If user is not authenticated, use the user from context
+      if (user) {
+        setProfileData(user);
+        await fetchUserStats(user._id || user.id);
+      } else {
+        toast.warning('Not Logged In', 'Please log in to view your profile');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserStats = async (userId) => {
+    try {
+      // Fetch cases where user is assigned
+      const casesResponse = await apiService.getCases({ 
+        myOnly: true,
+        limit: 100
+      });
+      
+      if (casesResponse.success && casesResponse.data) {
+        const allCases = casesResponse.data.cases || [];
+        const activeCases = allCases.filter(c => 
+          c.status === 'assigned' || c.status === 'in_progress'
+        ).length;
+        const resolvedCases = allCases.filter(c => 
+          c.status === 'resolved' || c.status === 'closed'
+        ).length;
+        
+        setUserStats({
+          casesHelped: resolvedCases,
+          activeCases: activeCases,
+          rating: 4.8 // TODO: Implement rating system
+        });
+      }
+    } catch (error) {
+      console.log('Error fetching user stats:', error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchProfileData();
+    setRefreshing(false);
+  };
+
+  // Use actual user data or fallback
+  const userData = profileData || user || {
+    name: 'User',
+    email: 'user@example.com',
+    phone: '+91 00000 00000',
+    userType: 'volunteer',
+    verified: false,
+    createdAt: new Date().toISOString(),
+  };
+
+  const formatJoinedDate = (dateString) => {
+    if (!dateString) return 'Recently';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
+
+  const capitalizeFirst = (str) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
   };
 
   const handleEditProfile = () => {
@@ -57,6 +143,10 @@ export default function ProfileScreen() {
     }
   };
 
+  if (loading) {
+    return <LoadingSpinner fullScreen message="Loading profile..." />;
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView 
@@ -68,16 +158,24 @@ export default function ProfileScreen() {
           }
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
       >
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarText}>
-              {user.name.split(' ').map(n => n[0]).join('')}
+              {userData.name ? userData.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
             </Text>
           </View>
-          <Text style={styles.userName}>{userData.name}</Text>
+          <Text style={styles.userName}>{userData.name || 'User'}</Text>
           <View style={styles.userTypeContainer}>
-            <Text style={styles.userType}>{userData.userType}</Text>
+            <Text style={styles.userType}>{capitalizeFirst(userData.userType)}</Text>
             {userData.verified && <Text style={styles.verifiedBadge}>✓ Verified</Text>}
           </View>
         </View>
@@ -86,19 +184,19 @@ export default function ProfileScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <MaterialIcons name="pets" size={24} color={theme.colors.primary} />
-            <Text style={styles.statValue}>{userData.casesHelped}</Text>
+            <Text style={styles.statValue}>{userStats.casesHelped}</Text>
             <Text style={styles.statLabel}>Cases Helped</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <MaterialIcons name="star" size={24} color={theme.colors.primary} />
-            <Text style={styles.statValue}>4.8</Text>
+            <Text style={styles.statValue}>{userStats.rating.toFixed(1)}</Text>
             <Text style={styles.statLabel}>Rating</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <MaterialIcons name="assignment" size={24} color={theme.colors.primary} />
-            <Text style={styles.statValue}>2</Text>
+            <Text style={styles.statValue}>{userStats.activeCases}</Text>
             <Text style={styles.statLabel}>Active Cases</Text>
           </View>
         </View>
@@ -125,7 +223,7 @@ export default function ProfileScreen() {
             <MaterialIcons name="calendar-today" size={18} color={theme.colors.textSecondary} />
             <Text style={styles.infoLabel}>Member Since</Text>
           </View>
-          <Text style={styles.infoValue}>{userData.joinedDate}</Text>
+          <Text style={styles.infoValue}>{formatJoinedDate(userData.createdAt)}</Text>
         </View>
       </GlassCard>
 

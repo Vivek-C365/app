@@ -4,6 +4,7 @@
  */
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { theme } from '../theme';
 import GlassTabBar from '../components/GlassTabBar';
 import TabIcon from '../components/TabIcon';
@@ -17,6 +18,16 @@ import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+// Helper function to determine if tab bar should be visible
+function getTabBarVisibility(route) {
+  const routeName = getFocusedRouteNameFromRoute(route) ?? 'CasesList';
+  
+  // Hide tab bar on these screens
+  const hideTabBarScreens = ['CaseDetails', 'AddStatusUpdate'];
+  
+  return !hideTabBarScreens.includes(routeName);
+}
 
 // Cases Stack Navigator
 function CasesStack() {

@@ -28,7 +28,7 @@ export default function CasesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [cases, setCases] = useState([]);
   const [filteredCases, setFilteredCases] = useState([]);
-  const [activeTab, setActiveTab] = useState('all'); // 'all' or 'my'
+  const [activeTab, setActiveTab] = useState('all'); // 'all', 'my', or 'reported'
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showDetailsSheet, setShowDetailsSheet] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
@@ -111,6 +111,25 @@ export default function CasesScreen() {
         });
         
         console.log('My cases response:', response);
+      } else if (activeTab === 'reported') {
+        // Check if user is authenticated
+        if (!isAuthenticated) {
+          toast.warning('Login Required', 'Please login to view reported cases');
+          setCases([]);
+          setLoading(false);
+          setRefreshing(false);
+          return;
+        }
+        
+        console.log('Fetching reported cases for user:', user?.id || user?._id);
+        
+        // Fetch cases reported by the current user
+        response = await apiService.getCases({ 
+          reportedBy: user?.id || user?._id,
+          limit: 50
+        });
+        
+        console.log('Reported cases response:', response);
       } else {
         // Fetch open cases
         response = await apiService.getCases({ status: 'open', limit: 50 });
@@ -530,6 +549,20 @@ export default function CasesScreen() {
               My Cases
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'reported' && styles.tabActive]}
+            onPress={() => setActiveTab('reported')}
+          >
+            <MaterialIcons 
+              name="assignment" 
+              size={20} 
+              color={activeTab === 'reported' ? theme.colors.primary : theme.colors.textSecondary} 
+            />
+            <Text style={[styles.tabText, activeTab === 'reported' && styles.tabTextActive]}>
+              Reported
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {filteredCases.length === 0 && !loading && (
@@ -547,6 +580,8 @@ export default function CasesScreen() {
                 ? 'Try adjusting your search or filters to find more cases.'
                 : (activeTab === 'my' 
                   ? "You haven't been assigned to any cases yet. Check 'All Cases' to help!"
+                  : activeTab === 'reported'
+                  ? "You haven't reported any cases yet. Tap 'Add New' to report an animal in need."
                   : 'There are no active rescue cases in your area right now.')}
             </Text>
             {hasActiveFilters() && (
@@ -557,23 +592,32 @@ export default function CasesScreen() {
           </View>
         )}
 
-        {filteredCases.map((caseItem, index) => (
-          <AnimalCard
-            key={`${caseItem.dbId}-${index}`}
-            id={caseItem.id}
-            name={caseItem.name}
-            type={caseItem.type}
-            status={caseItem.status}
-            location={caseItem.distanceText ? `${caseItem.location} • ${caseItem.distanceText}` : caseItem.location}
-            time={caseItem.time}
-            condition={caseItem.condition}
-            reporter={caseItem.reporter}
-            imageUrl={caseItem.imageUrl}
-            onPress={() => handleViewDetails(caseItem.id)}
-            onHelp={activeTab === 'all' ? () => handleHelpCase(caseItem.id) : undefined}
-            onFindNGO={activeTab === 'my' ? handleFindNGOs : undefined}
-          />
-        ))}
+        {filteredCases.map((caseItem, index) => {
+          // Don't show "Find NGO" button if user is an NGO
+          const isUserNGO = user?.userType === 'ngo';
+          const shouldShowFindNGO = activeTab === 'my' && !isUserNGO;
+          
+          // For reported cases, don't show action buttons (just view details)
+          const showHelpButton = activeTab === 'all';
+          
+          return (
+            <AnimalCard
+              key={`${caseItem.dbId}-${index}`}
+              id={caseItem.id}
+              name={caseItem.name}
+              type={caseItem.type}
+              status={caseItem.status}
+              location={caseItem.distanceText ? `${caseItem.location} • ${caseItem.distanceText}` : caseItem.location}
+              time={caseItem.time}
+              condition={caseItem.condition}
+              reporter={caseItem.reporter}
+              imageUrl={caseItem.imageUrl}
+              onPress={() => handleViewDetails(caseItem.id)}
+              onHelp={showHelpButton ? () => handleHelpCase(caseItem.id) : undefined}
+              onFindNGO={shouldShowFindNGO ? handleFindNGOs : undefined}
+            />
+          );
+        })}
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>

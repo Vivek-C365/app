@@ -14,7 +14,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
-  Dimensions
+  Dimensions,
+  RefreshControl
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -44,14 +45,25 @@ export default function CaseDetailsScreen({ route, navigation }) {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [activeTab, setActiveTab] = useState('details'); // 'details', 'messages', 'timeline'
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [expandedTimelineItems, setExpandedTimelineItems] = useState({});
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchCaseDetails();
     fetchMessages();
     fetchTimeline();
   }, [caseId]);
+
+  // Refresh data when screen comes into focus (e.g., after adding status update)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchCaseDetails();
+      fetchTimeline();
+      fetchMessages();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const fetchCaseDetails = async () => {
     try {
@@ -137,6 +149,16 @@ export default function CaseDetailsScreen({ route, navigation }) {
   const handleAddStatusUpdate = () => {
     // Navigate to status update screen or show modal
     navigation.navigate('AddStatusUpdate', { caseId });
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchCaseDetails(),
+      fetchTimeline(),
+      fetchMessages()
+    ]);
+    setRefreshing(false);
   };
 
   const toggleTimelineItem = (index) => {
@@ -263,8 +285,16 @@ export default function CaseDetailsScreen({ route, navigation }) {
         <ScrollView 
           ref={scrollViewRef}
           style={styles.content}
-          contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 180 }]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={theme.colors.primary}
+              colors={[theme.colors.primary]}
+            />
+          }
         >
           {/* Photo Gallery */}
           {caseData.photos && caseData.photos.length > 0 && (
@@ -428,7 +458,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
           <ScrollView 
             ref={messagesEndRef}
             style={styles.messagesList}
-            contentContainerStyle={[styles.messagesContent, { paddingBottom: insets.bottom + 80 }]}
+            contentContainerStyle={[styles.messagesContent, { paddingBottom: insets.bottom + 160 }]}
             showsVerticalScrollIndicator={false}
           >
             {messages.length === 0 ? (
@@ -472,7 +502,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
           </ScrollView>
 
           {/* Message Input */}
-          <View style={[styles.messageInputContainer, { paddingBottom: insets.bottom + 10 }]}>
+          <View style={[styles.messageInputContainer, { paddingBottom: insets.bottom + 80 }]}>
             <TextInput
               style={styles.messageInput}
               placeholder="Type a message..."
@@ -500,8 +530,22 @@ export default function CaseDetailsScreen({ route, navigation }) {
       {activeTab === 'timeline' && (
         <ScrollView 
           style={styles.content}
-          contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[
+            styles.contentContainer, 
+            { paddingBottom: isUserAssigned() && caseData.status !== 'resolved' && caseData.status !== 'closed' 
+              ? insets.bottom + 200 
+              : insets.bottom + 100 
+            }
+          ]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={theme.colors.primary}
+              colors={[theme.colors.primary]}
+            />
+          }
         >
           {timeline.length === 0 ? (
             <View style={styles.emptyTimeline}>
@@ -698,7 +742,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
 
       {/* Action Buttons */}
       {activeTab === 'details' && (
-        <View style={[styles.actionBar, { paddingBottom: insets.bottom + 10 }]}>
+        <View style={[styles.actionBar, { paddingBottom: insets.bottom + 80 }]}>
           {caseData.status === 'open' ? (
             <GlassButton
               title="I Can Help"
@@ -707,6 +751,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
                   .then(() => {
                     toast.success('Success', 'You have been assigned to this case');
                     fetchCaseDetails();
+                    fetchTimeline();
                   })
                   .catch(() => toast.error('Failed', 'Could not assign case'));
               }}
@@ -714,10 +759,15 @@ export default function CaseDetailsScreen({ route, navigation }) {
               size="large"
               style={{ flex: 1 }}
             />
-          ) : (
+          ) : isUserAssigned() ? (
             <View style={styles.assignedBadge}>
               <MaterialIcons name="check-circle" size={20} color={theme.colors.success} />
-              <Text style={styles.assignedText}>Case Assigned</Text>
+              <Text style={styles.assignedText}>You are helping with this case</Text>
+            </View>
+          ) : (
+            <View style={styles.assignedBadgeOther}>
+              <MaterialIcons name="info" size={20} color={theme.colors.textSecondary} />
+              <Text style={styles.assignedTextOther}>Case is being handled</Text>
             </View>
           )}
         </View>
@@ -725,7 +775,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
 
       {/* Status Update Button for Assigned Users */}
       {activeTab === 'timeline' && isUserAssigned() && caseData.status !== 'resolved' && caseData.status !== 'closed' && (
-        <View style={[styles.actionBar, { paddingBottom: insets.bottom + 10 }]}>
+        <View style={[styles.actionBar, { paddingBottom: insets.bottom + 80 }]}>
           <GlassButton
             title="Add Status Update"
             onPress={handleAddStatusUpdate}
@@ -1047,12 +1097,16 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
   },
   messageInputContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: theme.spacing.sm,
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.background,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
@@ -1202,9 +1256,13 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
   },
   actionBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.background,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
@@ -1223,6 +1281,22 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.md,
     fontWeight: theme.typography.fontWeight.semibold,
     color: theme.colors.success,
+  },
+  assignedBadgeOther: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  assignedTextOther: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.textSecondary,
   },
   errorContainer: {
     flex: 1,

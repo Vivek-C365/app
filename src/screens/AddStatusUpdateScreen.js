@@ -18,7 +18,7 @@ import { theme } from '../theme';
 import GlassButton from '../components/GlassButton';
 import GlassSelect from '../components/GlassSelect';
 import GlassInput from '../components/GlassInput';
-import ImagePicker from '../components/ImagePicker';
+import PhotoManager from '../components/PhotoManager';
 import LoadingSpinner from '../components/LoadingSpinner';
 import apiService from '../../services/api';
 import toast from '../utils/toast';
@@ -103,7 +103,7 @@ export default function AddStatusUpdateScreen({ route, navigation }) {
 
       <ScrollView 
         style={styles.content}
-        contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 20 }]}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 120 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Info Banner */}
@@ -183,11 +183,11 @@ export default function AddStatusUpdateScreen({ route, navigation }) {
           <Text style={styles.hint}>
             Take clear photos showing the animal's current condition
           </Text>
-          <ImagePicker
+          <PhotoManager
             photos={photos}
             onPhotosChange={setPhotos}
             maxPhotos={5}
-            minPhotos={2}
+            required={true}
           />
         </View>
 

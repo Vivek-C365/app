@@ -16,6 +16,7 @@ const logger = require('../utils/logger');
  * @access  Public (for now, can be protected later)
  */
 router.post('/',
+  optionalAuth,
   [
     body('animalType').isIn(['dog', 'cat', 'bird', 'cattle', 'wildlife', 'other', 'cow']).withMessage('Invalid animal type'),
     body('condition').isIn(['injured', 'sick', 'trapped', 'abandoned', 'aggressive', 'other', 'lost', 'starving']).withMessage('Invalid condition'),
@@ -66,8 +67,11 @@ router.post('/',
         : [];
 
       // Create case data
+      const reporterId = req.user?._id || req.user?.id || null;
+      logger.info(`Creating case with reporterId: ${reporterId}, user: ${JSON.stringify(req.user)}`);
+      
       const caseData = {
-        reporterId: req.user?._id || null, // Will be null for unauthenticated users
+        reporterId: reporterId, // Will be null for unauthenticated users
         animalType: animalTypeMap[animalType] || 'other',
         condition: conditionMap[condition] || 'other',
         description,
@@ -132,7 +136,7 @@ router.post('/',
  */
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const { status, animalType, urgencyLevel, limit = 50, skip = 0, myOnly } = req.query;
+    const { status, animalType, urgencyLevel, limit = 50, skip = 0, myOnly, reportedBy } = req.query;
 
     const query = {};
     
@@ -150,6 +154,15 @@ router.get('/', optionalAuth, async (req, res) => {
       const userId = req.user.id || req.user._id;
       query.assignedHelpers = userId;
       logger.info(`Fetching cases for user: ${userId}, query: ${JSON.stringify(query)}`);
+    }
+    
+    // Filter by reporter if reportedBy is provided and user is authenticated
+    if (reportedBy && req.user) {
+      const userId = req.user.id || req.user._id;
+      query.reporterId = userId;
+      logger.info(`Fetching reported cases for user: ${userId}, reporterId filter: ${userId}`);
+    } else if (reportedBy && !req.user) {
+      logger.warn('Attempted to fetch reported cases without authentication');
     }
 
     const cases = await Case.find(query)
@@ -412,6 +425,20 @@ router.post('/:id/assign', optionalAuth, async (req, res) => {
     // Determine the helper ID to add
     const helperIdToAdd = req.user ? (req.user.id || req.user._id) : helperId;
 
+    logger.info(`Assign case request - User: ${JSON.stringify(req.user)}, helperIdToAdd: ${helperIdToAdd}`);
+
+    // Check if user is authenticated
+    if (!helperIdToAdd) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'AUTHENTICATION_REQUIRED',
+          message: 'You must be logged in to accept a case'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Update status to assigned if it was open
     if (caseItem.status === 'open') {
       caseItem.status = 'assigned';
@@ -424,15 +451,11 @@ router.post('/:id/assign', optionalAuth, async (req, res) => {
       $set: {
         status: caseItem.status,
         lastStatusUpdate: caseItem.lastStatusUpdate
-      }
+      },
+      $addToSet: { assignedHelpers: helperIdToAdd }
     };
     
-    // Add helper to assignedHelpers array if we have a valid ID
-    // $addToSet will automatically prevent duplicates
-    if (helperIdToAdd) {
-      updateData.$addToSet = { assignedHelpers: helperIdToAdd };
-      logger.info(`Adding helper ${helperIdToAdd} to case ${caseItem.caseId}`);
-    }
+    logger.info(`Adding helper ${helperIdToAdd} to case ${caseItem.caseId}`);
     
     // Use updateOne to bypass validation on unchanged fields
     const updateResult = await Case.updateOne(
@@ -441,6 +464,28 @@ router.post('/:id/assign', optionalAuth, async (req, res) => {
     );
     
     logger.info(`Case ${caseItem.caseId} assigned to helper ${helperIdToAdd || 'unknown'}. Modified: ${updateResult.modifiedCount}`);
+
+    // Create a message to track the assignment in timeline
+    if (helperIdToAdd) {
+      try {
+        const Message = require('../models/Message');
+        const User = require('../models/User');
+        
+        const helper = await User.findById(helperIdToAdd);
+        if (helper) {
+          await Message.create({
+            caseId: req.params.id,
+            senderId: null, // System message
+            content: `${helper.name} has been assigned to help with this case`,
+            messageType: 'system',
+            priority: 'normal'
+          });
+        }
+      } catch (msgError) {
+        logger.error('Error creating assignment message:', msgError);
+        // Don't fail the assignment if message creation fails
+      }
+    }
 
     res.json({
       success: true,

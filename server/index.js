@@ -60,9 +60,13 @@ app.get('/health', (req, res) => {
 // API Routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
+const casesRoutes = require('./routes/cases');
+const messagesRoutes = require('./routes/messages');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/cases', casesRoutes);
+app.use('/api/messages', messagesRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ 
@@ -71,7 +75,9 @@ app.get('/api', (req, res) => {
     endpoints: {
       health: '/health',
       auth: '/api/auth',
-      users: '/api/users'
+      users: '/api/users',
+      cases: '/api/cases',
+      messages: '/api/messages'
     }
   });
 });

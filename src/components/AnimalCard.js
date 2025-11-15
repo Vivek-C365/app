@@ -25,6 +25,7 @@ export default function AnimalCard({
   imageUrl,
   onPress,
   onHelp,
+  onFindNGO,
   style
 }) {
   const { width } = useWindowDimensions();
@@ -63,7 +64,7 @@ export default function AnimalCard({
                 <Text style={styles.condition}>{condition}</Text>
                 <View style={styles.infoRow}>
                   <MaterialIcons name="place" size={14} color={theme.colors.textSecondary} />
-                  <Text style={styles.location}>{location}</Text>
+                  <Text style={styles.location} numberOfLines={1}>{location}</Text>
                 </View>
                 <View style={styles.infoRow}>
                   <MaterialIcons name="access-time" size={14} color={theme.colors.textTertiary} />
@@ -85,6 +86,20 @@ export default function AnimalCard({
             activeOpacity={0.7}
           >
             <Text style={styles.helpText}>I Can Help</Text>
+          </TouchableOpacity>
+        )}
+        
+        {onFindNGO && (
+          <TouchableOpacity 
+            style={styles.ngoButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              onFindNGO();
+            }}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="search" size={18} color={theme.colors.white} />
+            <Text style={styles.ngoText}>Find NGO</Text>
           </TouchableOpacity>
         )}
       </TouchableOpacity>
@@ -177,6 +192,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   helpText: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.white,
+    letterSpacing: 0.3,
+  },
+  ngoButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: theme.spacing.md + 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  ngoText: {
     fontSize: theme.typography.fontSize.md,
     fontWeight: theme.typography.fontWeight.semibold,
     color: theme.colors.white,

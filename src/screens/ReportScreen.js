@@ -18,10 +18,12 @@ import LocationPicker from '../components/LocationPicker';
 import apiService from '../../services/api';
 import config from '../../config';
 import toast from '../utils/toast';
+import { useAuth } from '../contexts/AuthContext';
 
 const DRAFT_KEY = '@report_draft';
 
 export default function ReportScreen() {
+  const { user, isAuthenticated } = useAuth();
   const [animalType, setAnimalType] = useState('');
   const [condition, setCondition] = useState('');
   const [description, setDescription] = useState('');
@@ -38,9 +40,31 @@ export default function ReportScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [hasDraft, setHasDraft] = useState(false);
+  const [contactFieldsDisabled, setContactFieldsDisabled] = useState(false);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 375;
+
+  // Auto-fill user details if logged in
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // Only auto-fill if fields are empty (not overriding draft or user input)
+      if (!contactName && user.name) {
+        setContactName(user.name);
+      }
+      if (!contactPhone && user.phone) {
+        // Format phone number if needed
+        const phone = user.phone.replace(/^GOOGLE_/, ''); // Remove GOOGLE_ prefix if exists
+        if (phone.length === 10) {
+          setContactPhone(phone);
+        }
+      }
+      if (!contactEmail && user.email) {
+        setContactEmail(user.email);
+      }
+      setContactFieldsDisabled(true); // Disable fields for logged-in users
+    }
+  }, [isAuthenticated, user]);
 
   // Load draft on mount
   useEffect(() => {
@@ -425,7 +449,15 @@ export default function ReportScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Contact</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Your Contact</Text>
+            {isAuthenticated && (
+              <View style={styles.autoFillBadge}>
+                <MaterialIcons name="check-circle" size={16} color={theme.colors.success} />
+                <Text style={styles.autoFillText}>Auto-filled from profile</Text>
+              </View>
+            )}
+          </View>
           
           <GlassInput
             label="Name *"
@@ -433,6 +465,8 @@ export default function ReportScreen() {
             value={contactName}
             onChangeText={setContactName}
             error={validationErrors.contactName}
+            editable={!contactFieldsDisabled}
+            style={contactFieldsDisabled && styles.disabledInput}
           />
 
           <GlassInput
@@ -442,6 +476,8 @@ export default function ReportScreen() {
             onChangeText={setContactPhone}
             keyboardType="phone-pad"
             error={validationErrors.contactPhone}
+            editable={!contactFieldsDisabled}
+            style={contactFieldsDisabled && styles.disabledInput}
           />
 
           <GlassInput
@@ -452,7 +488,15 @@ export default function ReportScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             error={validationErrors.contactEmail}
+            editable={!contactFieldsDisabled}
+            style={contactFieldsDisabled && styles.disabledInput}
           />
+          
+          {isAuthenticated && (
+            <Text style={styles.autoFillHint}>
+              💡 Your contact details are automatically filled from your profile. To change them, update your profile settings.
+            </Text>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -580,11 +624,40 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: theme.spacing.xl,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.xs,
+  },
   sectionTitle: {
     fontSize: theme.typography.fontSize.lg,
     fontWeight: theme.typography.fontWeight.semibold,
     color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.xs,
+  },
+  autoFillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: theme.colors.success + '20',
+    borderRadius: theme.borderRadius.sm,
+  },
+  autoFillText: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.success,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  autoFillHint: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.sm,
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
+  disabledInput: {
+    opacity: 0.7,
   },
   sectionSubtitle: {
     fontSize: theme.typography.fontSize.sm,

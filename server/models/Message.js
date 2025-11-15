@@ -20,7 +20,7 @@ const messageSchema = new Schema({
   senderId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false, // Allow null for system messages
     index: true
   },
   content: {

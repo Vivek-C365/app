@@ -111,6 +111,8 @@
 
 
 
+
+
   - Create animal reporting form with all fields
   - Integrate camera for photo capture
   - Add GPS location picker
@@ -120,7 +122,11 @@
   - Create submission confirmation screen
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [ ] 9. Build Active Cases list screen for mobile
+- [x] 9. Build Active Cases list screen for mobile
+
+
+
+
 
 
 
@@ -133,9 +139,7 @@
   - Implement case list caching for offline viewing
   - _Requirements: 2.1, 5.3_
 
-- [ ] 10. Implement Case Details screen with messaging
-
-
+- [x] 10. Implement Case Details screen with messaging
 
 
 

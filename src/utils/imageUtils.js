@@ -9,11 +9,11 @@ import { getInfoAsync } from 'expo-file-system/legacy';
  * Image validation constraints
  */
 export const IMAGE_CONSTRAINTS = {
-  MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
-  MIN_WIDTH: 640,
-  MIN_HEIGHT: 480,
-  MAX_WIDTH: 4096,
-  MAX_HEIGHT: 4096,
+  MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB (increased for high-res photos)
+  MIN_WIDTH: 320,
+  MIN_HEIGHT: 240,
+  MAX_WIDTH: 8192, // Increased to support modern phone cameras
+  MAX_HEIGHT: 8192, // Increased to support modern phone cameras
   ALLOWED_FORMATS: ['jpg', 'jpeg', 'png'],
   COMPRESSION_QUALITY: 0.8,
   THUMBNAIL_SIZE: 200,
@@ -118,9 +118,10 @@ export const validateImageQuality = (image) => {
  */
 export const compressImage = async (uri, quality = IMAGE_CONSTRAINTS.COMPRESSION_QUALITY) => {
   try {
+    // Resize to max width of 2048px for better quality while keeping file size reasonable
     const manipResult = await manipulateAsync(
       uri,
-      [{ resize: { width: 1920 } }], // Resize to max width of 1920px
+      [{ resize: { width: 2048 } }],
       {
         compress: quality,
         format: SaveFormat.JPEG,

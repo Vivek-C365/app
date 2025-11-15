@@ -3,16 +3,36 @@
  * Main navigation for the app
  */
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 import { theme } from '../theme';
 import GlassTabBar from '../components/GlassTabBar';
 import TabIcon from '../components/TabIcon';
 import ReportScreen from '../screens/ReportScreen';
 import CasesScreen from '../screens/CasesScreen';
+import CaseDetailsScreen from '../screens/CaseDetailsScreen';
+import AddStatusUpdateScreen from '../screens/AddStatusUpdateScreen';
 import SearchScreen from '../screens/SearchScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+// Cases Stack Navigator
+function CasesStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        cardStyle: { backgroundColor: 'transparent' },
+      }}
+    >
+      <Stack.Screen name="CasesList" component={CasesScreen} />
+      <Stack.Screen name="CaseDetails" component={CaseDetailsScreen} />
+      <Stack.Screen name="AddStatusUpdate" component={AddStatusUpdateScreen} />
+    </Stack.Navigator>
+  );
+}
 
 export default function TabNavigator() {
   return (
@@ -36,7 +56,7 @@ export default function TabNavigator() {
     >
       <Tab.Screen
         name="Cases"
-        component={CasesScreen}
+        component={CasesStack}
         options={{
           title: 'Animalbook',
           headerShown: false,

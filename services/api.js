@@ -89,8 +89,14 @@ const apiService = {
   // Cases
   getCases: (params) => api.get('/api/cases', { params }),
   getCaseById: (id) => api.get(`/api/cases/${id}`),
+  getCaseTimeline: (id) => api.get(`/api/cases/${id}/timeline`),
   createCase: (data) => api.post('/api/cases', data),
   updateCase: (id, data) => api.put(`/api/cases/${id}`, data),
+  assignCase: (id, helperData) => api.post(`/api/cases/${id}/assign`, helperData),
+  transferCase: (id, transferData) => api.post(`/api/cases/${id}/transfer`, transferData),
+  addStatusUpdate: (id, updateData) => api.post(`/api/cases/${id}/status-update`, updateData),
+  getNearbyNGOs: (latitude, longitude, radius) => api.get('/api/cases/nearby/ngos', { params: { latitude, longitude, radius } }),
+  fixMyAssignments: () => api.post('/api/cases/fix-my-assignments'),
   
   // Authentication
   login: (credentials) => api.post('/api/auth/login', credentials),
@@ -115,6 +121,8 @@ const apiService = {
   // Messages
   getMessages: (caseId) => api.get(`/api/messages/${caseId}`),
   sendMessage: (caseId, message) => api.post(`/api/messages/${caseId}`, message),
+  markMessagesAsRead: (caseId) => api.post(`/api/messages/${caseId}/mark-read`),
+  getUnreadCount: (caseId) => api.get(`/api/messages/${caseId}/unread-count`),
 };
 
 export default apiService;

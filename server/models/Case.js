@@ -11,10 +11,15 @@ const { Schema } = mongoose;
  * Case schema for animal rescue cases
  */
 const caseSchema = new Schema({
+  caseId: {
+    type: String,
+    unique: true,
+    index: true
+  },
   reporterId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false, // Allow anonymous reporting
     index: true
   },
   animalType: {
@@ -80,6 +85,13 @@ const caseSchema = new Schema({
     required: true
   }],
   contactInfo: {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 100
+    },
     phone: {
       type: String,
       required: true,
@@ -133,6 +145,18 @@ const caseSchema = new Schema({
   }
 }, {
   timestamps: true
+});
+
+// Pre-save hook to generate case ID
+caseSchema.pre('save', async function(next) {
+  if (!this.caseId) {
+    // Generate case ID in format: AR-YYYY-NNNN
+    const year = new Date().getFullYear();
+    const count = await this.constructor.countDocuments();
+    const caseNumber = String(count + 1).padStart(4, '0');
+    this.caseId = `AR-${year}-${caseNumber}`;
+  }
+  next();
 });
 
 // Create indexes for efficient queries

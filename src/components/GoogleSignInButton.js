@@ -18,12 +18,15 @@ export default function GoogleSignInButton() {
   const { firebaseSignIn } = useAuth();
   const [loading, setLoading] = useState(false);
 
-  // Configure Google Auth - let Expo handle redirect URI automatically
-  // Expo will use: https://auth.expo.io/@vivekc365/animal-rescue-mobile
+  // Configure Google Auth with Expo's auth proxy
+  // Using Android Client ID: 514292899346-eon6c9c5iev00v3i57ilnmfmgljnt4ck.apps.googleusercontent.com
+  // Redirect URI: https://auth.expo.io/@vivekc365/animal-rescue-mobile
+  // This must be added to Google Cloud Console > Credentials > OAuth 2.0 Client IDs
   const [, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: '514292899346-533hsop5q5rvefeduffr7fivgnhvq8i9.apps.googleusercontent.com',
+    expoClientId: '514292899346-eon6c9c5iev00v3i57ilnmfmgljnt4ck.apps.googleusercontent.com',
     androidClientId: '514292899346-eon6c9c5iev00v3i57ilnmfmgljnt4ck.apps.googleusercontent.com',
-    iosClientId: '514292899346-533hsop5q5rvefeduffr7fivgnhvq8i9.apps.googleusercontent.com',
+    iosClientId: '514292899346-eon6c9c5iev00v3i57ilnmfmgljnt4ck.apps.googleusercontent.com',
+    webClientId: '514292899346-eon6c9c5iev00v3i57ilnmfmgljnt4ck.apps.googleusercontent.com',
   });
 
   // Handle the response from Google OAuth

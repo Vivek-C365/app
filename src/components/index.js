@@ -26,3 +26,14 @@ export { default as TabIcon } from './TabIcon';
 export { default as Modal } from './Modal';
 export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as BottomSheet } from './BottomSheet';
+
+// Photo components
+export { default as PhotoManager } from './PhotoManager';
+export { default as CameraCapture } from './CameraCapture';
+export { default as ImagePicker } from './ImagePicker';
+export { default as PhotoPreview } from './PhotoPreview';
+
+// Location components
+export { default as LocationPicker } from './LocationPicker';
+export { default as LandmarkLocationInput } from './LandmarkLocationInput';
+export { default as LocationSelector } from './LocationSelector';

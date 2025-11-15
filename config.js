@@ -67,6 +67,10 @@ const config = {
   MAX_IMAGE_SIZE: 5 * 1024 * 1024, // 5MB
   MAX_IMAGES_PER_REPORT: 5,
   
+  // Cloudinary Configuration
+  CLOUDINARY_CLOUD_NAME: 'your-cloud-name', // Replace with your Cloudinary cloud name
+  CLOUDINARY_UPLOAD_PRESET: 'animal-rescue', // Replace with your upload preset
+  
   // Notification Configuration
   NOTIFICATION_CHANNELS: {
     EMERGENCY: 'emergency',

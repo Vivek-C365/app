@@ -6,18 +6,21 @@
  */
 
 export const FIREBASE_AUTH_CONFIG = {
-  // Web Client ID from Firebase Console
-  // Found in: Firebase Console > Project Settings > General > Your apps > Web app
-  WEB_CLIENT_ID: '514292899346-533hsop5q5rvefeduffr7fivgnhvq8i9.apps.googleusercontent.com',
-  
-  // Expo Client ID (same as Web Client ID for Expo Go)
-  EXPO_CLIENT_ID: '514292899346-533hsop5q5rvefeduffr7fivgnhvq8i9.apps.googleusercontent.com',
+  // Primary Client ID - Android OAuth Client ID
+  // This is the main client ID used for authentication
+  CLIENT_ID: '514292899346-eon6c9c5iev00v3i57ilnmfmgljnt4ck.apps.googleusercontent.com',
   
   // Android Client ID (from google-services.json)
   ANDROID_CLIENT_ID: '514292899346-eon6c9c5iev00v3i57ilnmfmgljnt4ck.apps.googleusercontent.com',
   
-  // iOS Client ID (if you add iOS app to Firebase)
-  IOS_CLIENT_ID: '514292899346-533hsop5q5rvefeduffr7fivgnhvq8i9.apps.googleusercontent.com',
+  // iOS Client ID (same as Android for now)
+  IOS_CLIENT_ID: '514292899346-eon6c9c5iev00v3i57ilnmfmgljnt4ck.apps.googleusercontent.com',
+  
+  // Web Client ID (same as Android for now)
+  WEB_CLIENT_ID: '514292899346-eon6c9c5iev00v3i57ilnmfmgljnt4ck.apps.googleusercontent.com',
+  
+  // Expo Client ID (same as Android for Expo Go)
+  EXPO_CLIENT_ID: '514292899346-eon6c9c5iev00v3i57ilnmfmgljnt4ck.apps.googleusercontent.com',
 };
 
 // Setup Instructions:

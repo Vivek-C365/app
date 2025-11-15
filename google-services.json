@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "514292899346",
+    "project_id": "skillify-a2035",
+    "storage_bucket": "skillify-a2035.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:514292899346:android:ea9fd6b7dbe0a2569a82cb",
+        "android_client_info": {
+          "package_name": "com.animalrescue.mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "514292899346-eon6c9c5iev00v3i57ilnmfmgljnt4ck.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBHieEg48W_06fu7syN3nYIhXpjUirpvWM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "514292899346-533hsop5q5rvefeduffr7fivgnhvq8i9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

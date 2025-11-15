@@ -41,7 +41,7 @@ router.post('/',
         });
       }
 
-      const { animalType, condition, description, location, photos, contactInfo } = req.body;
+      const { animalType, condition, description, location, photos, contactInfo, requiresReporterApproval } = req.body;
 
       // Map mobile app values to database enum values
       const animalTypeMap = {
@@ -90,7 +90,8 @@ router.post('/',
           name: contactInfo.name
         },
         status: 'open',
-        urgencyLevel: condition === 'injured' || condition === 'trapped' ? 'high' : 'medium'
+        urgencyLevel: condition === 'injured' || condition === 'trapped' ? 'high' : 'medium',
+        requiresReporterApproval: requiresReporterApproval !== false // Default to true if not specified
       };
 
       // Create case
@@ -159,8 +160,21 @@ router.get('/', optionalAuth, async (req, res) => {
     // Filter by reporter if reportedBy is provided and user is authenticated
     if (reportedBy && req.user) {
       const userId = req.user.id || req.user._id;
-      query.reporterId = userId;
-      logger.info(`Fetching reported cases for user: ${userId}, reporterId filter: ${userId}`);
+      const User = require('../models/User');
+      const currentUser = await User.findById(userId);
+      
+      if (currentUser) {
+        // Match by reporterId OR by contact info (phone/email) for cases created before auth
+        query.$or = [
+          { reporterId: userId },
+          { 'contactInfo.phone': currentUser.phone },
+          { 'contactInfo.email': currentUser.email }
+        ];
+        logger.info(`Fetching reported cases for user: ${userId}, phone: ${currentUser.phone}, email: ${currentUser.email}`);
+      } else {
+        query.reporterId = userId;
+        logger.info(`Fetching reported cases for user: ${userId}, reporterId filter: ${userId}`);
+      }
     } else if (reportedBy && !req.user) {
       logger.warn('Attempted to fetch reported cases without authentication');
     }
@@ -651,6 +665,350 @@ router.post('/:id/status-update',
     }
   }
 );
+
+/**
+ * @route   POST /api/cases/:id/mark-resolved
+ * @desc    Mark case as resolved (by NGO/helper)
+ * @access  Private (requires authentication)
+ */
+router.post('/:id/mark-resolved', optionalAuth, async (req, res) => {
+  try {
+    const caseItem = await Case.findById(req.params.id);
+
+    if (!caseItem) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Case not found'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Check if case requires reporter approval
+    if (caseItem.requiresReporterApproval) {
+      // Keep status as in_progress and mark as pending reporter approval
+      caseItem.status = 'in_progress';
+      caseItem.pendingReporterApproval = true;
+      caseItem.resolvedAt = new Date();
+      caseItem.lastStatusUpdate = new Date();
+      
+      await caseItem.save();
+      
+      logger.info(`Case ${caseItem.caseId} marked as pending reporter approval`);
+      
+      // TODO: Send notification to reporter for approval
+      
+      res.json({
+        success: true,
+        data: {
+          caseId: caseItem.caseId,
+          status: caseItem.status,
+          pendingReporterApproval: true,
+          message: 'Case marked as resolved. Waiting for reporter approval.'
+        },
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      // No approval needed, mark as closed directly
+      caseItem.status = 'closed';
+      caseItem.resolvedAt = new Date();
+      caseItem.lastStatusUpdate = new Date();
+      caseItem.nextReminderDue = null;
+      
+      await caseItem.save();
+      
+      logger.info(`Case ${caseItem.caseId} marked as closed (no approval required)`);
+      
+      res.json({
+        success: true,
+        data: {
+          caseId: caseItem.caseId,
+          status: caseItem.status,
+          message: 'Case successfully closed'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+  } catch (error) {
+    logger.error('Error marking case as resolved:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to mark case as resolved'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * @route   POST /api/cases/:id/reporter-approve
+ * @desc    Reporter approves and closes the case
+ * @access  Private (requires authentication - must be reporter)
+ */
+router.post('/:id/reporter-approve', optionalAuth, async (req, res) => {
+  try {
+    const caseItem = await Case.findById(req.params.id);
+
+    if (!caseItem) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Case not found'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Verify user is the reporter
+    const userId = req.user?.id || req.user?._id;
+    const User = require('../models/User');
+    const currentUser = await User.findById(userId);
+    
+    // Check if user is the reporter by ID or by contact info (for cases created before auth)
+    let isReporter = false;
+    
+    if (caseItem.reporterId && caseItem.reporterId.toString() === userId?.toString()) {
+      isReporter = true;
+    } else if (currentUser && caseItem.contactInfo) {
+      // Check if contact info matches
+      if (caseItem.contactInfo.phone === currentUser.phone || 
+          caseItem.contactInfo.email === currentUser.email) {
+        isReporter = true;
+      }
+    }
+    
+    if (!isReporter) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Only the reporter can approve this case'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Close the case
+    caseItem.status = 'closed';
+    caseItem.pendingReporterApproval = false;
+    caseItem.lastStatusUpdate = new Date();
+    caseItem.nextReminderDue = null;
+    
+    await caseItem.save();
+    
+    logger.info(`Case ${caseItem.caseId} approved and closed by reporter`);
+    
+    // Create a status update for the approval
+    try {
+      const { StatusUpdate } = require('../models');
+      await StatusUpdate.create({
+        caseId: req.params.id,
+        updatedBy: userId,
+        previousStatus: 'in_progress',
+        newStatus: 'closed',
+        condition: 'recovered',
+        description: 'Reporter approved the case resolution and closed the case.',
+        photos: [],
+        notes: 'Case approved by reporter'
+      });
+    } catch (statusError) {
+      logger.error('Error creating approval status update:', statusError);
+      // Don't fail the approval if status update creation fails
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        caseId: caseItem.caseId,
+        status: caseItem.status,
+        message: 'Case successfully closed'
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Error approving case:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to approve case'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * @route   POST /api/cases/:id/reporter-reject
+ * @desc    Reporter rejects the resolution and reopens the case
+ * @access  Private (requires authentication - must be reporter)
+ */
+router.post('/:id/reporter-reject', optionalAuth, async (req, res) => {
+  try {
+    const caseItem = await Case.findById(req.params.id);
+
+    if (!caseItem) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Case not found'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Verify user is the reporter
+    const userId = req.user?.id || req.user?._id;
+    const User = require('../models/User');
+    const currentUser = await User.findById(userId);
+    
+    // Check if user is the reporter by ID or by contact info (for cases created before auth)
+    let isReporter = false;
+    
+    if (caseItem.reporterId && caseItem.reporterId.toString() === userId?.toString()) {
+      isReporter = true;
+    } else if (currentUser && caseItem.contactInfo) {
+      // Check if contact info matches
+      if (caseItem.contactInfo.phone === currentUser.phone || 
+          caseItem.contactInfo.email === currentUser.email) {
+        isReporter = true;
+      }
+    }
+    
+    if (!isReporter) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Only the reporter can reject this case resolution'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const { reason } = req.body;
+
+    // Reopen the case
+    caseItem.status = 'in_progress';
+    caseItem.pendingReporterApproval = false;
+    caseItem.resolvedAt = null;
+    caseItem.lastStatusUpdate = new Date();
+    caseItem.nextReminderDue = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    
+    await caseItem.save();
+    
+    logger.info(`Case ${caseItem.caseId} rejected by reporter and reopened`);
+    
+    // Create a status update for the rejection
+    try {
+      const { StatusUpdate } = require('../models');
+      await StatusUpdate.create({
+        caseId: req.params.id,
+        updatedBy: userId,
+        previousStatus: 'in_progress',
+        newStatus: 'in_progress',
+        condition: 'stable',
+        description: reason || 'Reporter rejected the case resolution. Case has been reopened for further action.',
+        photos: [],
+        notes: 'Case rejected by reporter - needs more work'
+      });
+    } catch (statusError) {
+      logger.error('Error creating rejection status update:', statusError);
+      // Don't fail the rejection if status update creation fails
+    }
+    
+    // Create a system message about the rejection
+    try {
+      const Message = require('../models/Message');
+      await Message.create({
+        caseId: req.params.id,
+        senderId: null, // System message
+        content: `Reporter rejected the resolution${reason ? `: ${reason}` : ''}. Case has been reopened.`,
+        messageType: 'system',
+        priority: 'high'
+      });
+    } catch (msgError) {
+      logger.error('Error creating rejection message:', msgError);
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        caseId: caseItem.caseId,
+        status: caseItem.status,
+        message: 'Case has been reopened. The helper will be notified.'
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Error rejecting case:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to reject case'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * @route   POST /api/cases/fix-pending-approvals
+ * @desc    Fix cases that are resolved but missing pendingReporterApproval flag
+ * @access  Public (temporary migration endpoint)
+ */
+router.post('/fix-pending-approvals', async (req, res) => {
+  try {
+    // Find all resolved cases that require approval
+    const allResolvedCases = await Case.find({ 
+      status: 'resolved',
+      requiresReporterApproval: true 
+    });
+    logger.info(`Found ${allResolvedCases.length} resolved cases requiring approval`);
+    
+    let fixedCount = 0;
+    for (const caseItem of allResolvedCases) {
+      logger.info(`Fixing case ${caseItem.caseId}: changing status from resolved to in_progress`);
+      // Change status to in_progress and set pendingReporterApproval
+      caseItem.status = 'in_progress';
+      caseItem.pendingReporterApproval = true;
+      await caseItem.save();
+      fixedCount++;
+      logger.info(`Fixed case ${caseItem.caseId} - status changed to in_progress, pendingReporterApproval set to true`);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        fixedCount,
+        totalResolved: allResolvedCases.length,
+        message: `Fixed ${fixedCount} case(s) - changed status from resolved to in_progress`
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Error fixing pending approvals:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to fix pending approvals'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 /**
  * @route   GET /api/cases/nearby/ngos

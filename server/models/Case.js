@@ -142,6 +142,14 @@ const caseSchema = new Schema({
   },
   aiActivatedAt: {
     type: Date
+  },
+  requiresReporterApproval: {
+    type: Boolean,
+    default: true // By default, reporter wants to follow up
+  },
+  pendingReporterApproval: {
+    type: Boolean,
+    default: false // True when NGO marks as resolved but waiting for reporter approval
   }
 }, {
   timestamps: true

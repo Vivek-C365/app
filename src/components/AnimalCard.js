@@ -26,6 +26,7 @@ export default function AnimalCard({
   onPress,
   onHelp,
   onFindNGO,
+  pendingApproval,
   style
 }) {
   const { width } = useWindowDimensions();
@@ -76,7 +77,17 @@ export default function AnimalCard({
         </View>
 
         {/* Action Section */}
-        {onHelp && (
+        {pendingApproval ? (
+          <View style={styles.approvalSection}>
+            <View style={styles.approvalBanner}>
+              <MaterialIcons name="info" size={18} color={theme.colors.warning} />
+              <Text style={styles.approvalBannerText}>
+                Helper marked this case as resolved. Tap to review and approve or reject.
+              </Text>
+              <MaterialIcons name="chevron-right" size={20} color={theme.colors.warning} />
+            </View>
+          </View>
+        ) : onHelp ? (
           <TouchableOpacity 
             style={styles.helpButton}
             onPress={(e) => {
@@ -87,9 +98,7 @@ export default function AnimalCard({
           >
             <Text style={styles.helpText}>I Can Help</Text>
           </TouchableOpacity>
-        )}
-        
-        {onFindNGO && (
+        ) : onFindNGO ? (
           <TouchableOpacity 
             style={styles.ngoButton}
             onPress={(e) => {
@@ -101,7 +110,7 @@ export default function AnimalCard({
             <MaterialIcons name="search" size={18} color={theme.colors.white} />
             <Text style={styles.ngoText}>Find NGO</Text>
           </TouchableOpacity>
-        )}
+        ) : null}
       </TouchableOpacity>
     </View>
   );
@@ -210,5 +219,24 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.semibold,
     color: theme.colors.white,
     letterSpacing: 0.3,
+  },
+  approvalSection: {
+    backgroundColor: theme.colors.background,
+  },
+  approvalBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.warning + '20',
+    borderWidth: 1,
+    borderColor: theme.colors.warning + '40',
+  },
+  approvalBannerText: {
+    flex: 1,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.warning,
+    lineHeight: 18,
+    fontWeight: theme.typography.fontWeight.medium,
   },
 });

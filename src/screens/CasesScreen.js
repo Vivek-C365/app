@@ -28,7 +28,7 @@ export default function CasesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [cases, setCases] = useState([]);
   const [filteredCases, setFilteredCases] = useState([]);
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'my', or 'reported'
+  const [activeTab, setActiveTab] = useState('all'); // 'all', 'my', 'reported', or 'history'
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showDetailsSheet, setShowDetailsSheet] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
@@ -130,6 +130,26 @@ export default function CasesScreen() {
         });
         
         console.log('Reported cases response:', response);
+      } else if (activeTab === 'history') {
+        // Check if user is authenticated and is an NGO
+        if (!isAuthenticated) {
+          toast.warning('Login Required', 'Please login to view case history');
+          setCases([]);
+          setLoading(false);
+          setRefreshing(false);
+          return;
+        }
+        
+        console.log('Fetching case history for NGO:', user?.id || user?._id);
+        
+        // Fetch all cases (resolved and closed) that the NGO has worked on
+        response = await apiService.getCases({ 
+          status: 'resolved,closed',
+          myOnly: true,
+          limit: 100
+        });
+        
+        console.log('Case history response:', response);
       } else {
         // Fetch open cases
         response = await apiService.getCases({ status: 'open', limit: 50 });
@@ -413,6 +433,8 @@ export default function CasesScreen() {
     navigation.navigate('CaseDetails', { caseId: caseData.dbId });
   };
 
+
+
   if (loading) {
     return <LoadingSpinner fullScreen message="Loading cases..." />;
   }
@@ -521,7 +543,12 @@ export default function CasesScreen() {
 
 
         {/* Tabs */}
-        <View style={styles.tabs}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabsContainer}
+          contentContainerStyle={styles.tabsContent}
+        >
           <TouchableOpacity
             style={[styles.tab, activeTab === 'all' && styles.tabActive]}
             onPress={() => setActiveTab('all')}
@@ -563,7 +590,24 @@ export default function CasesScreen() {
               Reported
             </Text>
           </TouchableOpacity>
-        </View>
+
+          {/* History Tab - Only for NGOs */}
+          {user?.userType === 'ngo' && (
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'history' && styles.tabActive]}
+              onPress={() => setActiveTab('history')}
+            >
+              <MaterialIcons 
+                name="history" 
+                size={20} 
+                color={activeTab === 'history' ? theme.colors.primary : theme.colors.textSecondary} 
+              />
+              <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
+                History
+              </Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
 
         {filteredCases.length === 0 && !loading && (
           <View style={styles.emptyState}>
@@ -582,6 +626,8 @@ export default function CasesScreen() {
                   ? "You haven't been assigned to any cases yet. Check 'All Cases' to help!"
                   : activeTab === 'reported'
                   ? "You haven't reported any cases yet. Tap 'Add New' to report an animal in need."
+                  : activeTab === 'history'
+                  ? "No resolved cases yet. Cases you complete will appear here with full history."
                   : 'There are no active rescue cases in your area right now.')}
             </Text>
             {hasActiveFilters() && (
@@ -597,8 +643,12 @@ export default function CasesScreen() {
           const isUserNGO = user?.userType === 'ngo';
           const shouldShowFindNGO = activeTab === 'my' && !isUserNGO;
           
-          // For reported cases, don't show action buttons (just view details)
+          // For reported and history cases, don't show action buttons (just view details)
           const showHelpButton = activeTab === 'all';
+          
+          // Check if case is pending reporter approval
+          const isPendingApproval = activeTab === 'reported' && 
+                                     caseItem.fullData?.pendingReporterApproval === true;
           
           return (
             <AnimalCard
@@ -615,6 +665,7 @@ export default function CasesScreen() {
               onPress={() => handleViewDetails(caseItem.id)}
               onHelp={showHelpButton ? () => handleHelpCase(caseItem.id) : undefined}
               onFindNGO={shouldShowFindNGO ? handleFindNGOs : undefined}
+              pendingApproval={isPendingApproval}
             />
           );
         })}
@@ -1117,13 +1168,15 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.bold,
     letterSpacing: 0.3,
   },
-  tabs: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
+  tabsContainer: {
     marginBottom: theme.spacing.lg,
+    flexGrow: 0,
+  },
+  tabsContent: {
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.xs,
   },
   tab: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1134,6 +1187,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    minWidth: 120,
   },
   tabActive: {
     backgroundColor: theme.colors.primary + '20',

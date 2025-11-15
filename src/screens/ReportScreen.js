@@ -41,6 +41,7 @@ export default function ReportScreen() {
   const [validationErrors, setValidationErrors] = useState({});
   const [hasDraft, setHasDraft] = useState(false);
   const [contactFieldsDisabled, setContactFieldsDisabled] = useState(false);
+  const [wantsFollowUp, setWantsFollowUp] = useState(null); // New field for follow-up preference - null means not selected yet
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 375;
@@ -166,6 +167,10 @@ export default function ReportScreen() {
       errors.contactEmail = 'Please provide a valid email address';
     }
 
+    if (wantsFollowUp === null) {
+      errors.wantsFollowUp = 'Please select whether you want to follow up on this case';
+    }
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -220,6 +225,7 @@ export default function ReportScreen() {
           email: contactEmail || undefined,
           name: contactName,
         },
+        requiresReporterApproval: wantsFollowUp === true, // Add follow-up preference
       };
 
       // Submit to API
@@ -499,6 +505,49 @@ export default function ReportScreen() {
           )}
         </View>
 
+        {/* Follow-up Preference */}
+        <View style={styles.section}>
+          <View style={[styles.followUpContainer, validationErrors.wantsFollowUp && styles.followUpContainerError]}>
+            <View style={styles.followUpInfo}>
+              <Text style={styles.followUpTitle}>Do you want to follow up on this case? *</Text>
+              <Text style={styles.followUpDescription}>
+                {wantsFollowUp === true
+                  ? "You'll be notified of updates and can approve when the case is resolved."
+                  : wantsFollowUp === false
+                  ? "The case will be automatically closed when helpers mark it as resolved."
+                  : "Please select an option to continue."}
+              </Text>
+            </View>
+            <View style={styles.toggleButtons}>
+              <GlassButton
+                title="Yes"
+                onPress={() => {
+                  setWantsFollowUp(true);
+                  setValidationErrors({...validationErrors, wantsFollowUp: null});
+                  toast.success('Follow-up Enabled', "You'll receive updates and approve resolution");
+                }}
+                variant={wantsFollowUp === true ? 'success' : 'light'}
+                size="small"
+                style={styles.toggleButton}
+              />
+              <GlassButton
+                title="No"
+                onPress={() => {
+                  setWantsFollowUp(false);
+                  setValidationErrors({...validationErrors, wantsFollowUp: null});
+                  toast.info('Auto-close Enabled', 'Case will close automatically when resolved');
+                }}
+                variant={wantsFollowUp === false ? 'error' : 'light'}
+                size="small"
+                style={styles.toggleButton}
+              />
+            </View>
+            {validationErrors.wantsFollowUp && (
+              <Text style={styles.followUpError}>{validationErrors.wantsFollowUp}</Text>
+            )}
+          </View>
+        </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Photos (Optional)</Text>
           <Text style={styles.sectionSubtitle}>
@@ -715,5 +764,42 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.xl,
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.success,
+  },
+  followUpContainer: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: theme.spacing.md,
+  },
+  followUpContainerError: {
+    borderColor: theme.colors.error,
+    borderWidth: 2,
+  },
+  followUpInfo: {
+    gap: theme.spacing.xs,
+  },
+  followUpTitle: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.textPrimary,
+  },
+  followUpDescription: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
+    lineHeight: 20,
+  },
+  followUpError: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.error,
+    marginTop: theme.spacing.xs,
+  },
+  toggleButtons: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  toggleButton: {
+    flex: 1,
   },
 });

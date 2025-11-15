@@ -62,11 +62,13 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const casesRoutes = require('./routes/cases');
 const messagesRoutes = require('./routes/messages');
+const uploadRoutes = require('./routes/upload');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/cases', casesRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ 

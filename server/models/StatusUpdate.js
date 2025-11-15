@@ -206,9 +206,24 @@ statusUpdateSchema.statics.createAndUpdateCase = async function(updateData, case
   if (updateData.newStatus === 'assigned' || updateData.newStatus === 'in_progress') {
     caseDoc.nextReminderDue = new Date(Date.now() + 24 * 60 * 60 * 1000);
     caseDoc.reminderSent = false;
-  } else if (updateData.newStatus === 'resolved' || updateData.newStatus === 'closed') {
+  } else if (updateData.newStatus === 'resolved') {
+    // Check if case requires reporter approval
+    if (caseDoc.requiresReporterApproval) {
+      // Keep status as in_progress and mark as pending reporter approval
+      caseDoc.status = 'in_progress';
+      caseDoc.pendingReporterApproval = true;
+      caseDoc.resolvedAt = new Date();
+      caseDoc.nextReminderDue = null;
+    } else {
+      // No approval needed, mark as closed directly
+      caseDoc.status = 'closed';
+      caseDoc.resolvedAt = new Date();
+      caseDoc.nextReminderDue = null;
+    }
+  } else if (updateData.newStatus === 'closed') {
     caseDoc.resolvedAt = new Date();
     caseDoc.nextReminderDue = null;
+    caseDoc.pendingReporterApproval = false;
   }
   
   await caseDoc.save();

@@ -95,8 +95,12 @@ const apiService = {
   assignCase: (id, helperData) => api.post(`/api/cases/${id}/assign`, helperData),
   transferCase: (id, transferData) => api.post(`/api/cases/${id}/transfer`, transferData),
   addStatusUpdate: (id, updateData) => api.post(`/api/cases/${id}/status-update`, updateData),
+  markCaseResolved: (id) => api.post(`/api/cases/${id}/mark-resolved`),
+  reporterApproveCase: (id) => api.post(`/api/cases/${id}/reporter-approve`),
+  reporterRejectCase: (id, reason) => api.post(`/api/cases/${id}/reporter-reject`, { reason }),
   getNearbyNGOs: (latitude, longitude, radius) => api.get('/api/cases/nearby/ngos', { params: { latitude, longitude, radius } }),
   fixMyAssignments: () => api.post('/api/cases/fix-my-assignments'),
+  fixPendingApprovals: () => api.post('/api/cases/fix-pending-approvals'),
   
   // Authentication
   login: (credentials) => api.post('/api/auth/login', credentials),
@@ -123,6 +127,36 @@ const apiService = {
   sendMessage: (caseId, message) => api.post(`/api/messages/${caseId}`, message),
   markMessagesAsRead: (caseId) => api.post(`/api/messages/${caseId}/mark-read`),
   getUnreadCount: (caseId) => api.get(`/api/messages/${caseId}/unread-count`),
+  
+  // Upload
+  uploadImage: (imageUri) => {
+    const formData = new FormData();
+    formData.append('image', {
+      uri: imageUri,
+      type: 'image/jpeg',
+      name: 'photo.jpg',
+    });
+    return api.post('/api/upload/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  uploadImages: (imageUris) => {
+    const formData = new FormData();
+    imageUris.forEach((uri, index) => {
+      formData.append('images', {
+        uri,
+        type: 'image/jpeg',
+        name: `photo${index}.jpg`,
+      });
+    });
+    return api.post('/api/upload/images', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 };
 
 export default apiService;

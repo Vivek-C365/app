@@ -64,13 +64,26 @@ export default function AddStatusUpdateScreen({ route, navigation }) {
     try {
       setSubmitting(true);
 
+      // Upload photos to Cloudinary first
+      let uploadedPhotoUrls = [];
+      if (photos && photos.length > 0) {
+        const photoUris = photos.map(p => p.uri || p);
+        const uploadResponse = await apiService.uploadImages(photoUris);
+        
+        if (uploadResponse.success && uploadResponse.data.images) {
+          uploadedPhotoUrls = uploadResponse.data.images.map(img => img.url);
+        } else {
+          throw new Error('Failed to upload photos');
+        }
+      }
+
       const updateData = {
         condition,
         newStatus,
         description,
         treatmentProvided: treatmentProvided || undefined,
         nextSteps: nextSteps || undefined,
-        photos: photos.map(p => p.uri || p)
+        photos: uploadedPhotoUrls
       };
 
       const response = await apiService.addStatusUpdate(caseId, updateData);

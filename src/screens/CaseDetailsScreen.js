@@ -15,7 +15,8 @@ import {
   Platform,
   Linking,
   Dimensions,
-  RefreshControl
+  RefreshControl,
+  Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -176,6 +177,13 @@ export default function CaseDetailsScreen({ route, navigation }) {
     );
   };
 
+  const isUserReporter = () => {
+    if (!user || !caseData) return false;
+    const userId = user.id || user._id;
+    const reporterId = caseData.reporterId?._id || caseData.reporterId?.id || caseData.reporterId;
+    return reporterId && reporterId.toString() === userId.toString();
+  };
+
   const capitalizeFirst = (str) => {
     if (!str) return '';
     return str.charAt(0).toUpperCase() + str.slice(1).replace('_', ' ');
@@ -285,7 +293,14 @@ export default function CaseDetailsScreen({ route, navigation }) {
         <ScrollView 
           ref={scrollViewRef}
           style={styles.content}
-          contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 180 }]}
+          contentContainerStyle={[
+            styles.contentContainer, 
+            { 
+              paddingBottom: caseData.pendingReporterApproval && isUserReporter() 
+                ? insets.bottom + 240  // Extra space for approval buttons with banner
+                : insets.bottom + 180 
+            }
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -723,12 +738,47 @@ export default function CaseDetailsScreen({ route, navigation }) {
                         </View>
                       )}
 
-                      {event.photoCount > 0 && (
+                      {event.photoCount > 0 && !isExpanded && (
                         <View style={styles.timelinePhotos}>
                           <MaterialIcons name="photo-library" size={16} color={theme.colors.primary} />
                           <Text style={styles.timelinePhotosText}>
-                            {event.photoCount} photo{event.photoCount > 1 ? 's' : ''}
+                            {event.photoCount} photo{event.photoCount > 1 ? 's' : ''} - Tap to view
                           </Text>
+                        </View>
+                      )}
+
+                      {/* Display photos when expanded */}
+                      {isExpanded && event.photos && event.photos.length > 0 && (
+                        <View style={styles.timelinePhotoGallery}>
+                          <Text style={styles.timelineDetailTitle}>Photos ({event.photos.length})</Text>
+                          <ScrollView 
+                            horizontal 
+                            showsHorizontalScrollIndicator={false}
+                            style={styles.timelinePhotoScroll}
+                          >
+                            {event.photos.map((photo, photoIndex) => (
+                              <TouchableOpacity 
+                                key={photoIndex}
+                                onPress={() => {
+                                  // Could open full screen image viewer here
+                                  console.log('View photo:', photo);
+                                }}
+                                activeOpacity={0.8}
+                              >
+                                <Image 
+                                  source={{ uri: photo }} 
+                                  style={styles.timelinePhoto}
+                                  resizeMode="cover"
+                                  onError={(error) => {
+                                    console.log('Error loading photo:', error.nativeEvent.error);
+                                  }}
+                                />
+                                <View style={styles.photoOverlay}>
+                                  <MaterialIcons name="zoom-in" size={24} color={theme.colors.white} />
+                                </View>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
                         </View>
                       )}
                     </View>
@@ -784,6 +834,91 @@ export default function CaseDetailsScreen({ route, navigation }) {
             icon={<MaterialIcons name="add" size={20} color={theme.colors.white} />}
             style={{ flex: 1 }}
           />
+        </View>
+      )}
+
+      {/* Mark as Resolved Button for Assigned Users (in_progress status) */}
+      {activeTab === 'details' && isUserAssigned() && caseData.status === 'in_progress' && (
+        <View style={[styles.actionBar, { paddingBottom: insets.bottom + 80 }]}>
+          <GlassButton
+            title="Mark as Resolved"
+            onPress={() => {
+              apiService.markCaseResolved(caseId)
+                .then((response) => {
+                  if (response.data.pendingReporterApproval) {
+                    toast.success('Marked as Resolved', 'Waiting for reporter approval');
+                  } else {
+                    toast.success('Case Closed', 'Case has been successfully closed');
+                  }
+                  fetchCaseDetails();
+                  fetchTimeline();
+                })
+                .catch(() => toast.error('Failed', 'Could not mark case as resolved'));
+            }}
+            variant="success"
+            size="large"
+            icon={<MaterialIcons name="check-circle" size={20} color={theme.colors.white} />}
+            style={{ flex: 1 }}
+          />
+        </View>
+      )}
+
+      {/* Reporter Approval Buttons (for resolved cases pending approval) */}
+      {activeTab === 'details' && caseData.pendingReporterApproval && isUserReporter() && (
+        <View style={[styles.actionBar, { paddingBottom: insets.bottom + 80 }]}>
+          <View style={styles.approvalBanner}>
+            <MaterialIcons name="info" size={20} color={theme.colors.warning} />
+            <Text style={styles.approvalBannerText}>
+              The helper has marked this case as resolved. Please review and choose an action.
+            </Text>
+          </View>
+          <View style={styles.approvalButtonsRow}>
+            <GlassButton
+              title="Reject"
+              onPress={() => {
+                Alert.alert(
+                  'Reject Resolution',
+                  'Are you sure the case is not resolved? This will reopen the case and notify the helper.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Reject & Reopen',
+                      style: 'destructive',
+                      onPress: () => {
+                        apiService.reporterRejectCase(caseId, 'Reporter rejected the resolution')
+                          .then(() => {
+                            toast.info('Case Reopened', 'The helper has been notified');
+                            fetchCaseDetails();
+                            fetchTimeline();
+                          })
+                          .catch(() => toast.error('Failed', 'Could not reject case'));
+                      }
+                    }
+                  ]
+                );
+              }}
+              variant="error"
+              size="medium"
+              icon={<MaterialIcons name="close" size={18} color={theme.colors.white} />}
+              style={{ flex: 1 }}
+            />
+            <GlassButton
+              title="Approve"
+              onPress={() => {
+                apiService.reporterApproveCase(caseId)
+                  .then(() => {
+                    toast.success('Case Closed', 'Thank you for confirming!');
+                    fetchCaseDetails();
+                    fetchTimeline();
+                  })
+                  .catch(() => toast.error('Failed', 'Could not approve case'));
+              }}
+              variant="success"
+              size="medium"
+              icon={<MaterialIcons name="done-all" size={18} color={theme.colors.white} />}
+              style={{ flex: 1 }}
+            />
+          </View>
         </View>
       )}
     </KeyboardAvoidingView>
@@ -1244,6 +1379,36 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontWeight: theme.typography.fontWeight.medium,
   },
+  timelinePhotoGallery: {
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  timelinePhotoScroll: {
+    marginTop: theme.spacing.sm,
+  },
+  timelinePhoto: {
+    width: 120,
+    height: 120,
+    borderRadius: theme.borderRadius.md,
+    marginRight: theme.spacing.sm,
+    backgroundColor: theme.colors.surface,
+  },
+  photoOverlay: {
+    position: 'absolute',
+    bottom: theme.spacing.xs,
+    right: theme.spacing.sm + theme.spacing.xs,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: theme.borderRadius.full,
+    padding: theme.spacing.xs,
+  },
+  photoNote: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.textTertiary,
+    fontStyle: 'italic',
+    marginTop: theme.spacing.sm,
+  },
   emptyTimeline: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1297,6 +1462,27 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.md,
     fontWeight: theme.typography.fontWeight.semibold,
     color: theme.colors.textSecondary,
+  },
+  approvalBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.warning + '20',
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+    marginBottom: theme.spacing.md,
+  },
+  approvalBannerText: {
+    flex: 1,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.warning,
+    lineHeight: 20,
+  },
+  approvalButtonsRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
   },
   errorContainer: {
     flex: 1,

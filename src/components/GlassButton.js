@@ -33,6 +33,8 @@ export default function GlassButton({
         return { bg: theme.colors.accent, text: theme.colors.white };
       case 'success':
         return { bg: theme.colors.success, text: theme.colors.white };
+      case 'error':
+        return { bg: theme.colors.error, text: theme.colors.white };
       case 'light':
         return { bg: 'rgba(60, 60, 60, 0.5)', text: theme.colors.textPrimary };
       default:

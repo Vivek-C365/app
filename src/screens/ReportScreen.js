@@ -1,10 +1,11 @@
 /**
  * Report Animal Screen
- * Allows users to report animals in need
+ * Allows users to report animals in need with full functionality
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import GlassInput from '../components/GlassInput';
@@ -12,56 +13,282 @@ import GlassSelect from '../components/GlassSelect';
 import GlassButton from '../components/GlassButton';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import PhotoManager from '../components/PhotoManager';
+import LocationPicker from '../components/LocationPicker';
+import apiService from '../../services/api';
+import config from '../../config';
+import toast from '../utils/toast';
+import { useAuth } from '../contexts/AuthContext';
+
+const DRAFT_KEY = '@report_draft';
 
 export default function ReportScreen() {
+  const { user, isAuthenticated } = useAuth();
   const [animalType, setAnimalType] = useState('');
   const [condition, setCondition] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
+  const [locationCoords, setLocationCoords] = useState(null);
   const [landmark, setLandmark] = useState('');
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showLocationModal, setShowLocationModal] = useState(false);
-  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
+  const [hasDraft, setHasDraft] = useState(false);
+  const [contactFieldsDisabled, setContactFieldsDisabled] = useState(false);
+  const [wantsFollowUp, setWantsFollowUp] = useState(null); // New field for follow-up preference - null means not selected yet
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 375;
 
-  const handleGetLocation = () => {
-    setShowLocationModal(true);
+  // Auto-fill user details if logged in
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // Only auto-fill if fields are empty (not overriding draft or user input)
+      if (!contactName && user.name) {
+        setContactName(user.name);
+      }
+      if (!contactPhone && user.phone) {
+        // Format phone number if needed
+        const phone = user.phone.replace(/^GOOGLE_/, ''); // Remove GOOGLE_ prefix if exists
+        if (phone.length === 10) {
+          setContactPhone(phone);
+        }
+      }
+      if (!contactEmail && user.email) {
+        setContactEmail(user.email);
+      }
+      setContactFieldsDisabled(true); // Disable fields for logged-in users
+    }
+  }, [isAuthenticated, user]);
+
+  // Load draft on mount
+  useEffect(() => {
+    loadDraft();
+  }, []);
+
+  // Auto-save draft when form changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveDraft();
+    }, 2000); // Save after 2 seconds of inactivity
+
+    return () => clearTimeout(timer);
+  }, [animalType, condition, description, location, locationCoords, landmark, contactName, contactPhone, contactEmail, photos]);
+
+  const loadDraft = async () => {
+    try {
+      const draftJson = await AsyncStorage.getItem(DRAFT_KEY);
+      if (draftJson) {
+        const draft = JSON.parse(draftJson);
+        setAnimalType(draft.animalType || '');
+        setCondition(draft.condition || '');
+        setDescription(draft.description || '');
+        setLocation(draft.location || '');
+        setLocationCoords(draft.locationCoords || null);
+        setLandmark(draft.landmark || '');
+        setContactName(draft.contactName || '');
+        setContactPhone(draft.contactPhone || '');
+        setContactEmail(draft.contactEmail || '');
+        setPhotos(draft.photos || []);
+        setHasDraft(true);
+      }
+    } catch (error) {
+      console.error('Error loading draft:', error);
+    }
   };
 
-  const handleTakePhoto = () => {
-    setShowPhotoModal(true);
+  const saveDraft = async () => {
+    try {
+      // Only save if there's some content
+      if (animalType || condition || description || location || photos.length > 0) {
+        const draft = {
+          animalType,
+          condition,
+          description,
+          location,
+          locationCoords,
+          landmark,
+          contactName,
+          contactPhone,
+          contactEmail,
+          photos,
+          savedAt: new Date().toISOString(),
+        };
+        await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+    }
+  };
+
+  const clearDraft = async () => {
+    try {
+      await AsyncStorage.removeItem(DRAFT_KEY);
+      setHasDraft(false);
+    } catch (error) {
+      console.error('Error clearing draft:', error);
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+
+    if (!animalType) {
+      errors.animalType = 'Please select an animal type';
+    }
+
+    if (!condition) {
+      errors.condition = 'Please select the animal condition';
+    }
+
+    if (!description || description.trim().length < 10) {
+      errors.description = 'Please provide a detailed description (at least 10 characters)';
+    }
+
+    if (!location || location.trim().length < 5) {
+      errors.location = 'Please provide a valid location';
+    }
+
+    if (!contactName || contactName.trim().length < 2) {
+      errors.contactName = 'Please provide your name';
+    }
+
+    if (!contactPhone || !/^[+]?[\d\s-]{10,}$/.test(contactPhone)) {
+      errors.contactPhone = 'Please provide a valid phone number';
+    }
+
+    if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      errors.contactEmail = 'Please provide a valid email address';
+    }
+
+    if (wantsFollowUp === null) {
+      errors.wantsFollowUp = 'Please select whether you want to follow up on this case';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleLocationSelect = (locationData) => {
+    // LocationPicker returns { latitude, longitude, address }
+    if (locationData.latitude && locationData.longitude) {
+      setLocationCoords({
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+      });
+    }
+    
+    // Set address
+    if (locationData.address) {
+      setLocation(locationData.address);
+    }
+    
+    // Close the picker
+    setShowLocationPicker(false);
   };
 
   const handleSubmit = async () => {
-    if (!animalType || !condition || !location || !contactName || !contactPhone) {
-      Alert.alert('Required Fields', 'Please fill all required fields');
+    if (!validateForm()) {
+      toast.error('Validation Error', 'Please fill all required fields correctly');
       return;
     }
 
     setShowSubmitDialog(true);
   };
 
-  const confirmSubmit = () => {
+  const confirmSubmit = async () => {
+    setShowSubmitDialog(false);
     setLoading(true);
-    // API call will be implemented later
-    setTimeout(() => {
+
+    try {
+      // Prepare case data
+      const caseData = {
+        animalType,
+        condition,
+        description,
+        location: {
+          address: location,
+          coordinates: locationCoords ? [locationCoords.longitude, locationCoords.latitude] : undefined,
+          landmarks: landmark,
+          description: location,
+          isApproximate: !locationCoords,
+        },
+        photos,
+        contactInfo: {
+          phone: contactPhone,
+          email: contactEmail || undefined,
+          name: contactName,
+        },
+        requiresReporterApproval: wantsFollowUp === true, // Add follow-up preference
+      };
+
+      // Submit to API
+      const response = await apiService.createCase(caseData);
+
+      if (response.success) {
+        // Clear draft after successful submission
+        await clearDraft();
+        
+        // Reset form
+        setAnimalType('');
+        setCondition('');
+        setDescription('');
+        setLocation('');
+        setLocationCoords(null);
+        setLandmark('');
+        setContactName('');
+        setContactPhone('');
+        setContactEmail('');
+        setPhotos([]);
+        setValidationErrors({});
+        
+        toast.success('Report Submitted!', 'Nearby volunteers will be notified immediately');
+        setShowSuccessModal(true);
+      } else {
+        throw new Error(response.error?.message || 'Failed to submit report');
+      }
+    } catch (error) {
+      toast.error(
+        'Submission Failed',
+        error.message || 'Failed to submit report. Your draft has been saved.'
+      );
+    } finally {
       setLoading(false);
-      setShowSuccessModal(true);
-      // Reset form
-      setAnimalType('');
-      setCondition('');
-      setDescription('');
-      setLocation('');
-      setLandmark('');
-      setContactName('');
-      setContactPhone('');
-    }, 1000);
+    }
+  };
+
+  const handleClearForm = () => {
+    Alert.alert(
+      'Clear Form',
+      'Are you sure you want to clear all fields? Your draft will be deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            setAnimalType('');
+            setCondition('');
+            setDescription('');
+            setLocation('');
+            setLocationCoords(null);
+            setLandmark('');
+            setContactName('');
+            setContactPhone('');
+            setContactEmail('');
+            setPhotos([]);
+            setValidationErrors({});
+            await clearDraft();
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -80,17 +307,24 @@ export default function ReportScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Report Animal</Text>
           <Text style={styles.subtitle}>Help an animal in need</Text>
+          {hasDraft && (
+            <View style={styles.draftBadge}>
+              <MaterialIcons name="drafts" size={16} color={theme.colors.warning} />
+              <Text style={styles.draftText}>Draft saved</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Animal Information</Text>
           
           <GlassSelect
-            label="Animal Type"
+            label="Animal Type *"
             placeholder="Select animal type"
             value={animalType}
             onValueChange={setAnimalType}
             icon={<MaterialIcons name="pets" size={20} color={theme.colors.textSecondary} />}
+            error={validationErrors.animalType}
             options={[
               { 
                 value: 'dog', 
@@ -126,11 +360,12 @@ export default function ReportScreen() {
           />
 
           <GlassSelect
-            label="Condition"
+            label="Condition *"
             placeholder="Select condition"
             value={condition}
             onValueChange={setCondition}
             icon={<MaterialIcons name="medical-services" size={20} color={theme.colors.textSecondary} />}
+            error={validationErrors.condition}
             options={[
               { 
                 value: 'injured', 
@@ -172,30 +407,43 @@ export default function ReportScreen() {
           />
 
           <GlassInput
-            label="Description"
-            placeholder="Describe what you see..."
+            label="Description *"
+            placeholder="Describe what you see... (minimum 10 characters)"
             value={description}
             onChangeText={setDescription}
             multiline
             numberOfLines={4}
+            error={validationErrors.description}
           />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Location</Text>
           
+          <View style={styles.locationButtons}>
+            <GlassButton
+              title="Pick Location"
+              onPress={() => setShowLocationPicker(true)}
+              variant="light"
+              icon={<MaterialIcons name="my-location" size={18} color={theme.colors.textPrimary} />}
+              style={{ flex: 1 }}
+            />
+            {locationCoords && (
+              <View style={styles.locationBadge}>
+                <MaterialIcons name="check-circle" size={16} color={theme.colors.success} />
+                <Text style={styles.locationBadgeText}>GPS</Text>
+              </View>
+            )}
+          </View>
+
           <GlassInput
-            label="Address"
-            placeholder="Enter location"
+            label="Address *"
+            placeholder="Select location using button above"
             value={location}
             onChangeText={setLocation}
-          />
-
-          <GlassButton
-            title="Use Current Location"
-            onPress={handleGetLocation}
-            variant="light"
-            icon={<MaterialIcons name="my-location" size={18} color={theme.colors.textPrimary} />}
+            error={validationErrors.location}
+            multiline
+            numberOfLines={2}
           />
 
           <GlassInput
@@ -207,78 +455,143 @@ export default function ReportScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Contact</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Your Contact</Text>
+            {isAuthenticated && (
+              <View style={styles.autoFillBadge}>
+                <MaterialIcons name="check-circle" size={16} color={theme.colors.success} />
+                <Text style={styles.autoFillText}>Auto-filled from profile</Text>
+              </View>
+            )}
+          </View>
           
           <GlassInput
-            label="Name"
+            label="Name *"
             placeholder="Your name"
             value={contactName}
             onChangeText={setContactName}
+            error={validationErrors.contactName}
+            editable={!contactFieldsDisabled}
+            style={contactFieldsDisabled && styles.disabledInput}
           />
 
           <GlassInput
-            label="Phone Number"
+            label="Phone Number *"
             placeholder="+91 XXXXX XXXXX"
             value={contactPhone}
             onChangeText={setContactPhone}
             keyboardType="phone-pad"
+            error={validationErrors.contactPhone}
+            editable={!contactFieldsDisabled}
+            style={contactFieldsDisabled && styles.disabledInput}
           />
+
+          <GlassInput
+            label="Email (Optional)"
+            placeholder="your.email@example.com"
+            value={contactEmail}
+            onChangeText={setContactEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            error={validationErrors.contactEmail}
+            editable={!contactFieldsDisabled}
+            style={contactFieldsDisabled && styles.disabledInput}
+          />
+          
+          {isAuthenticated && (
+            <Text style={styles.autoFillHint}>
+              💡 Your contact details are automatically filled from your profile. To change them, update your profile settings.
+            </Text>
+          )}
+        </View>
+
+        {/* Follow-up Preference */}
+        <View style={styles.section}>
+          <View style={[styles.followUpContainer, validationErrors.wantsFollowUp && styles.followUpContainerError]}>
+            <View style={styles.followUpInfo}>
+              <Text style={styles.followUpTitle}>Do you want to follow up on this case? *</Text>
+              <Text style={styles.followUpDescription}>
+                {wantsFollowUp === true
+                  ? "You'll be notified of updates and can approve when the case is resolved."
+                  : wantsFollowUp === false
+                  ? "The case will be automatically closed when helpers mark it as resolved."
+                  : "Please select an option to continue."}
+              </Text>
+            </View>
+            <View style={styles.toggleButtons}>
+              <GlassButton
+                title="Yes"
+                onPress={() => {
+                  setWantsFollowUp(true);
+                  setValidationErrors({...validationErrors, wantsFollowUp: null});
+                  toast.success('Follow-up Enabled', "You'll receive updates and approve resolution");
+                }}
+                variant={wantsFollowUp === true ? 'success' : 'light'}
+                size="small"
+                style={styles.toggleButton}
+              />
+              <GlassButton
+                title="No"
+                onPress={() => {
+                  setWantsFollowUp(false);
+                  setValidationErrors({...validationErrors, wantsFollowUp: null});
+                  toast.info('Auto-close Enabled', 'Case will close automatically when resolved');
+                }}
+                variant={wantsFollowUp === false ? 'error' : 'light'}
+                size="small"
+                style={styles.toggleButton}
+              />
+            </View>
+            {validationErrors.wantsFollowUp && (
+              <Text style={styles.followUpError}>{validationErrors.wantsFollowUp}</Text>
+            )}
+          </View>
         </View>
 
         <View style={styles.section}>
-          <GlassButton
-            title="Add Photos"
-            onPress={handleTakePhoto}
-            variant="light"
-            icon={<MaterialIcons name="add-a-photo" size={18} color={theme.colors.textPrimary} />}
+          <Text style={styles.sectionTitle}>Photos (Optional)</Text>
+          <Text style={styles.sectionSubtitle}>
+            Add up to {config.MAX_IMAGES_PER_REPORT} photos to help volunteers understand the situation
+          </Text>
+          <PhotoManager
+            photos={photos}
+            onPhotosChange={setPhotos}
+            maxPhotos={config.MAX_IMAGES_PER_REPORT}
+            required={false}
           />
         </View>
 
-        <GlassButton
-          title="Submit Report"
-          onPress={handleSubmit}
-          loading={loading}
-          variant="accent"
-          size="large"
-        />
+        <View style={styles.actionButtons}>
+          <GlassButton
+            title="Clear Form"
+            onPress={handleClearForm}
+            variant="light"
+            size="large"
+            style={{ flex: 1 }}
+          />
+          <GlassButton
+            title="Submit Report"
+            onPress={handleSubmit}
+            loading={loading}
+            variant="accent"
+            size="large"
+            style={{ flex: 2 }}
+          />
+        </View>
+
+        <Text style={styles.requiredNote}>* Required fields</Text>
       </ScrollView>
 
       <Modal
-        visible={showLocationModal}
-        onClose={() => setShowLocationModal(false)}
-        title="GPS Location"
-        size="small"
+        visible={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        title="Select Location"
+        size="large"
       >
-        <View style={styles.modalContent}>
-          <MaterialIcons name="location-searching" size={48} color={theme.colors.primary} />
-          <Text style={styles.modalText}>
-            GPS integration will be implemented in the next task. This will automatically detect your current location.
-          </Text>
-          <GlassButton
-            title="Got it"
-            onPress={() => setShowLocationModal(false)}
-            variant="primary"
-          />
-        </View>
-      </Modal>
-
-      <Modal
-        visible={showPhotoModal}
-        onClose={() => setShowPhotoModal(false)}
-        title="Add Photos"
-        size="small"
-      >
-        <View style={styles.modalContent}>
-          <MaterialIcons name="add-a-photo" size={48} color={theme.colors.primary} />
-          <Text style={styles.modalText}>
-            Camera integration will be implemented in the next task. You'll be able to take photos or select from gallery.
-          </Text>
-          <GlassButton
-            title="Got it"
-            onPress={() => setShowPhotoModal(false)}
-            variant="primary"
-          />
-        </View>
+        <LocationPicker
+          onLocationSelect={handleLocationSelect}
+          initialLocation={locationCoords}
+        />
       </Modal>
 
       <ConfirmDialog
@@ -303,7 +616,10 @@ export default function ReportScreen() {
           <MaterialIcons name="check-circle" size={64} color={theme.colors.success} />
           <Text style={styles.successTitle}>Success!</Text>
           <Text style={styles.modalText}>
-            Your report has been submitted successfully. Nearby volunteers will be notified and will reach out to you soon.
+            Your report has been submitted successfully. Nearby volunteers and NGOs will be notified immediately.
+          </Text>
+          <Text style={styles.modalSubtext}>
+            You will receive updates via phone and email as helpers respond to your case.
           </Text>
           <GlassButton
             title="Done"
@@ -338,14 +654,95 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontWeight: theme.typography.fontWeight.regular,
   },
+  draftBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: theme.colors.warning + '20',
+    borderRadius: theme.borderRadius.sm,
+    alignSelf: 'flex-start',
+  },
+  draftText: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.warning,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
   section: {
     marginBottom: theme.spacing.xl,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.xs,
   },
   sectionTitle: {
     fontSize: theme.typography.fontSize.lg,
     fontWeight: theme.typography.fontWeight.semibold,
     color: theme.colors.textPrimary,
+  },
+  autoFillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: theme.colors.success + '20',
+    borderRadius: theme.borderRadius.sm,
+  },
+  autoFillText: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.success,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  autoFillHint: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.sm,
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
+  disabledInput: {
+    opacity: 0.7,
+  },
+  sectionSubtitle: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
     marginBottom: theme.spacing.md,
+    lineHeight: 18,
+  },
+  locationButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  locationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: theme.colors.success + '20',
+    borderRadius: theme.borderRadius.sm,
+  },
+  locationBadgeText: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.success,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  requiredNote: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   modalContent: {
     alignItems: 'center',
@@ -357,9 +754,52 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  modalSubtext: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   successTitle: {
     fontSize: theme.typography.fontSize.xl,
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.success,
+  },
+  followUpContainer: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: theme.spacing.md,
+  },
+  followUpContainerError: {
+    borderColor: theme.colors.error,
+    borderWidth: 2,
+  },
+  followUpInfo: {
+    gap: theme.spacing.xs,
+  },
+  followUpTitle: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.textPrimary,
+  },
+  followUpDescription: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
+    lineHeight: 20,
+  },
+  followUpError: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.error,
+    marginTop: theme.spacing.xs,
+  },
+  toggleButtons: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  toggleButton: {
+    flex: 1,
   },
 });

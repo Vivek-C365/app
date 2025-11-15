@@ -11,11 +11,13 @@ const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
 const { connectDatabase } = require('./config/database');
-const { connectRedis } = require('./config/redis');
 const logger = require('./utils/logger');
 
 const app = express();
 const server = http.createServer(app);
+
+// Trust proxy - required for ngrok and other reverse proxies
+app.set('trust proxy', 1);
 
 // Socket.io setup
 const io = new Server(server, {
@@ -54,14 +56,29 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API Routes (will be added in subsequent tasks)
+// API Routes
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+const casesRoutes = require('./routes/cases');
+const messagesRoutes = require('./routes/messages');
+const uploadRoutes = require('./routes/upload');
+
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/cases', casesRoutes);
+app.use('/api/messages', messagesRoutes);
+app.use('/api/upload', uploadRoutes);
+
 app.get('/api', (req, res) => {
   res.json({ 
     message: 'Animal Rescue Platform API',
     version: '1.0.0',
     endpoints: {
       health: '/health',
-      api: '/api'
+      auth: '/api/auth',
+      users: '/api/users',
+      cases: '/api/cases',
+      messages: '/api/messages'
     }
   });
 });
@@ -109,15 +126,15 @@ async function startServer() {
     // Connect to MongoDB
     await connectDatabase();
     
-    // Connect to Redis
-    await connectRedis();
-    
-    // Start listening
-    server.listen(PORT, () => {
-      logger.info(`Server running on port ${PORT}`);
-      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      logger.info(`Client URL: ${process.env.CLIENT_URL || 'http://localhost:8081'}`);
-    });
+    // Start listening only if not in test environment
+    if (process.env.NODE_ENV !== 'test') {
+      server.listen(PORT, '0.0.0.0', () => {
+        logger.info(`Server running on port ${PORT}`);
+        logger.info(`Server accessible at http://localhost:${PORT} and http://10.0.2.2:${PORT} (Android emulator)`);
+        logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+        logger.info(`Client URL: ${process.env.CLIENT_URL || 'http://localhost:8081'}`);
+      });
+    }
   } catch (error) {
     logger.error('Failed to start server:', error);
     process.exit(1);
@@ -141,6 +158,12 @@ process.on('SIGINT', () => {
   });
 });
 
-startServer();
+// Only start server if not in test mode
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+} else {
+  // In test mode, just connect to database
+  connectDatabase();
+}
 
 module.exports = { app, server, io };

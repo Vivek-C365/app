@@ -2,13 +2,10 @@
  * Glass Tab Bar component with iOS-style glassmorphism effect
  * Professional bottom navigation with consistent spacing and design
  */
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform, Dimensions, useWindowDimensions } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Responsive sizing based on screen width
 const getResponsiveSizes = (screenWidth) => {

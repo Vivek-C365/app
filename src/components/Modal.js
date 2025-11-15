@@ -13,8 +13,19 @@ export default function Modal({
   showCloseButton = true,
   size = 'medium',
   actions,
+  fullScreen = false,
 }) {
   const getModalSize = () => {
+    if (fullScreen) {
+      return { 
+        width: '100%', 
+        height: '100%', 
+        maxWidth: '100%',
+        maxHeight: '100%',
+        borderRadius: 0,
+      };
+    }
+    
     switch (size) {
       case 'small':
         return { maxHeight: '40%' };
@@ -28,6 +39,23 @@ export default function Modal({
         return { maxHeight: '60%' };
     }
   };
+
+  // For fullScreen mode, render without overlay and backdrop
+  if (fullScreen) {
+    return (
+      <RNModal
+        visible={visible}
+        transparent={false}
+        animationType="slide"
+        onRequestClose={onClose}
+        statusBarTranslucent
+      >
+        <View style={styles.fullScreenContainer}>
+          {children}
+        </View>
+      </RNModal>
+    );
+  }
 
   return (
     <RNModal
@@ -82,6 +110,10 @@ export default function Modal({
 }
 
 const styles = StyleSheet.create({
+  fullScreenContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   overlay: {
     flex: 1,
     justifyContent: 'center',

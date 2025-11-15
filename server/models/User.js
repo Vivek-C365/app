@@ -66,7 +66,13 @@ const userSchema = new Schema({
     required: true,
     unique: true,
     trim: true,
-    match: [/^[0-9]{10}$/, 'Please provide a valid 10-digit phone number'],
+    validate: {
+      validator: function(v) {
+        // Allow GOOGLE_ prefix for Google OAuth users
+        return /^[0-9]{10}$/.test(v) || /^GOOGLE_/.test(v);
+      },
+      message: 'Please provide a valid 10-digit phone number'
+    },
     index: true
   },
   password: {
@@ -74,6 +80,12 @@ const userSchema = new Schema({
     required: true,
     minlength: 6,
     select: false // Don't include password in queries by default
+  },
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true
   },
   name: {
     type: String,

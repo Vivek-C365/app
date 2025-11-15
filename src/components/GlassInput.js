@@ -1,9 +1,9 @@
 /**
  * Glass Input component with iOS-style glassmorphism effect
  */
-import React from 'react';
-import { View, TextInput, Text, StyleSheet } from 'react-native';
+import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme';
 
 export default function GlassInput({
@@ -21,8 +21,18 @@ export default function GlassInput({
   inputStyle,
   leftIcon,
   rightIcon,
+  onRightIconPress,
+  autoCapitalize,
+  autoComplete,
   intensity = 70,
 }) {
+  const renderIcon = (iconName, size = 22) => {
+    if (!iconName) return null;
+    if (typeof iconName === 'string') {
+      return <Ionicons name={iconName} size={size} color="rgba(255, 255, 255, 0.6)" />;
+    }
+    return iconName;
+  };
   return (
     <View style={[styles.container, style]}>
       {label && <Text style={styles.label}>{label}</Text>}
@@ -36,7 +46,7 @@ export default function GlassInput({
           ]}
         >
           <View style={styles.inputContainer}>
-            {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
+            {leftIcon && <View style={styles.leftIcon}>{renderIcon(leftIcon)}</View>}
             <TextInput
               style={[
                 styles.input,
@@ -55,9 +65,19 @@ export default function GlassInput({
               keyboardType={keyboardType}
               secureTextEntry={secureTextEntry}
               editable={editable}
+              autoCapitalize={autoCapitalize}
+              autoComplete={autoComplete}
               textAlignVertical={multiline ? 'top' : 'center'}
             />
-            {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
+            {rightIcon && (
+              onRightIconPress ? (
+                <TouchableOpacity style={styles.rightIcon} onPress={onRightIconPress}>
+                  {renderIcon(rightIcon)}
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.rightIcon}>{renderIcon(rightIcon)}</View>
+              )
+            )}
           </View>
         </BlurView>
       </View>
@@ -71,12 +91,11 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   label: {
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.sm,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
   inputWrapper: {
     borderRadius: theme.borderRadius.lg,
@@ -84,14 +103,22 @@ const styles = StyleSheet.create({
     ...theme.shadow.sm,
   },
   glassContainer: {
-    backgroundColor: 'rgba(28, 28, 30, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: theme.borderRadius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: theme.borderRadius.lg,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   glassError: {
     borderColor: theme.colors.error,
-    backgroundColor: 'rgba(229, 57, 53, 0.1)',
+    backgroundColor: 'rgba(229, 57, 53, 0.15)',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -100,11 +127,12 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
+    paddingVertical: 16,
     paddingHorizontal: theme.spacing.md,
-    fontSize: theme.typography.fontSize.md,
+    fontSize: 16,
     color: theme.colors.textPrimary,
-    fontWeight: theme.typography.fontWeight.regular,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
   multiline: {
     minHeight: 100,
@@ -119,21 +147,24 @@ const styles = StyleSheet.create({
   },
   leftIcon: {
     position: 'absolute',
-    left: theme.spacing.md,
+    left: 16,
     zIndex: 1,
+    opacity: 0.7,
   },
   rightIcon: {
     position: 'absolute',
-    right: theme.spacing.md,
+    right: 16,
     zIndex: 1,
+    opacity: 0.7,
   },
   disabled: {
     opacity: 0.6,
   },
   errorText: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.error,
-    marginTop: theme.spacing.xs,
-    fontWeight: theme.typography.fontWeight.semibold,
+    fontSize: 12,
+    color: '#FF6B6B',
+    marginTop: 6,
+    marginLeft: 4,
+    fontWeight: '600',
   },
 });

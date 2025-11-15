@@ -2,26 +2,26 @@
  * Profile Screen
  * User profile and settings
  */
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Switch, useWindowDimensions } from 'react-native';
+import { useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, Alert, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useAuth } from '../contexts/AuthContext';
 import { theme } from '../theme';
 import GlassCard from '../components/GlassCard';
 import GlassButton from '../components/GlassButton';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function ProfileScreen() {
+  const { user, logout, biometricEnabled, biometricAvailable, enableBiometric, disableBiometric } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const isSmallScreen = width < 375;
 
-  // Mock user data
-  const user = {
+  // Use actual user data or fallback to mock data
+  const userData = user || {
     name: 'Rahul Sharma',
     email: 'rahul.sharma@example.com',
     phone: '+91 98765 43210',
@@ -39,8 +39,22 @@ export default function ProfileScreen() {
     setShowLogoutDialog(true);
   };
 
-  const confirmLogout = () => {
-    Alert.alert('Logged Out', 'You have been logged out successfully');
+  const confirmLogout = async () => {
+    await logout();
+  };
+
+  const handleBiometricToggle = async (value) => {
+    if (value) {
+      const success = await enableBiometric();
+      if (!success) {
+        Alert.alert('Error', 'Failed to enable biometric authentication');
+      }
+    } else {
+      const success = await disableBiometric();
+      if (!success) {
+        Alert.alert('Error', 'Failed to disable biometric authentication');
+      }
+    }
   };
 
   return (
@@ -61,10 +75,10 @@ export default function ProfileScreen() {
               {user.name.split(' ').map(n => n[0]).join('')}
             </Text>
           </View>
-          <Text style={styles.userName}>{user.name}</Text>
+          <Text style={styles.userName}>{userData.name}</Text>
           <View style={styles.userTypeContainer}>
-            <Text style={styles.userType}>{user.userType}</Text>
-            {user.verified && <Text style={styles.verifiedBadge}>✓ Verified</Text>}
+            <Text style={styles.userType}>{userData.userType}</Text>
+            {userData.verified && <Text style={styles.verifiedBadge}>✓ Verified</Text>}
           </View>
         </View>
 
@@ -72,7 +86,7 @@ export default function ProfileScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <MaterialIcons name="pets" size={24} color={theme.colors.primary} />
-            <Text style={styles.statValue}>{user.casesHelped}</Text>
+            <Text style={styles.statValue}>{userData.casesHelped}</Text>
             <Text style={styles.statLabel}>Cases Helped</Text>
           </View>
           <View style={styles.statDivider} />
@@ -97,22 +111,46 @@ export default function ProfileScreen() {
             <MaterialIcons name="email" size={18} color={theme.colors.textSecondary} />
             <Text style={styles.infoLabel}>Email</Text>
           </View>
-          <Text style={styles.infoValue}>{user.email}</Text>
+          <Text style={styles.infoValue}>{userData.email}</Text>
         </View>
         <View style={styles.infoRow}>
           <View style={styles.infoLabelContainer}>
             <MaterialIcons name="phone" size={18} color={theme.colors.textSecondary} />
             <Text style={styles.infoLabel}>Phone</Text>
           </View>
-          <Text style={styles.infoValue}>{user.phone}</Text>
+          <Text style={styles.infoValue}>{userData.phone}</Text>
         </View>
         <View style={styles.infoRow}>
           <View style={styles.infoLabelContainer}>
             <MaterialIcons name="calendar-today" size={18} color={theme.colors.textSecondary} />
             <Text style={styles.infoLabel}>Member Since</Text>
           </View>
-          <Text style={styles.infoValue}>{user.joinedDate}</Text>
+          <Text style={styles.infoValue}>{userData.joinedDate}</Text>
         </View>
+      </GlassCard>
+
+      <GlassCard variant="secondary" intensity={80} style={styles.section}>
+        <Text style={styles.sectionTitle}>Security</Text>
+        
+        {biometricAvailable && (
+          <View style={styles.settingRow}>
+            <View style={styles.settingIconContainer}>
+              <MaterialIcons name="fingerprint" size={20} color={theme.colors.textSecondary} />
+            </View>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Biometric Authentication</Text>
+              <Text style={styles.settingDescription}>
+                Use fingerprint or face ID to login
+              </Text>
+            </View>
+            <Switch
+              value={biometricEnabled}
+              onValueChange={handleBiometricToggle}
+              trackColor={{ false: theme.colors.border, true: theme.colors.primaryLight }}
+              thumbColor={biometricEnabled ? theme.colors.primary : theme.colors.textTertiary}
+            />
+          </View>
+        )}
       </GlassCard>
 
       <GlassCard variant="secondary" intensity={80} style={styles.section}>

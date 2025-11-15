@@ -4,6 +4,7 @@
  */
 
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import config from '../config';
 
 // Create axios instance with default configuration
@@ -17,13 +18,13 @@ const api = axios.create({
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
-  async (config) => {
+  async (requestConfig) => {
     // Add auth token if available
-    // const token = await AsyncStorage.getItem(config.CACHE_KEYS.USER_TOKEN);
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
-    return config;
+    const token = await AsyncStorage.getItem(config.CACHE_KEYS.USER_TOKEN);
+    if (token) {
+      requestConfig.headers.Authorization = `Bearer ${token}`;
+    }
+    return requestConfig;
   },
   (error) => {
     return Promise.reject(error);
@@ -36,9 +37,22 @@ api.interceptors.response.use(
     return response.data;
   },
   (error) => {
+    console.log('API Error Details:', {
+      hasResponse: !!error.response,
+      hasRequest: !!error.request,
+      message: error.message,
+      config: error.config ? {
+        url: error.config.url,
+        method: error.config.method,
+        baseURL: error.config.baseURL
+      } : null
+    });
+    
     if (error.response) {
       // Server responded with error status
       const { status, data } = error.response;
+      
+      console.log(`Server error ${status}:`, data);
       
       if (status === 401) {
         // Handle unauthorized - clear token and redirect to login
@@ -55,6 +69,7 @@ api.interceptors.response.use(
     } else if (error.request) {
       // Request made but no response received
       console.log('Network error - no response from server');
+      console.log('Request details:', error.request);
       return Promise.reject({ message: 'Network error. Please check your connection.' });
     } else {
       // Something else happened
@@ -80,7 +95,10 @@ const apiService = {
   // Authentication
   login: (credentials) => api.post('/api/auth/login', credentials),
   register: (userData) => api.post('/api/auth/register', userData),
+  googleAuth: (idToken) => api.post('/api/auth/google', { idToken }),
   logout: () => api.post('/api/auth/logout'),
+  requestPasswordReset: (email) => api.post('/api/auth/forgot-password', { email }),
+  resetPassword: (token, password) => api.post('/api/auth/reset-password', { token, password }),
   
   // User
   getProfile: () => api.get('/api/users/profile'),

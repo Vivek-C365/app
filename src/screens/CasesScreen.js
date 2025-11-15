@@ -2,7 +2,7 @@
  * Cases Screen
  * Displays active rescue cases
  */
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -42,7 +42,7 @@ export default function CasesScreen() {
       status: 'Assigned', 
       location: 'Connaught Place, Delhi', 
       time: '5h ago',
-      condition: 'Sitting on a twig, what a cutie isn\'t he?',
+      condition: "Sitting on a twig, what a cutie isn't he?",
       reporter: 'Priya M.',
       imageUrl: null
     },

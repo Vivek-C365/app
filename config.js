@@ -3,14 +3,34 @@
  * Central configuration for API endpoints and app settings
  */
 
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+
 // Determine the API URL based on environment
 const getApiUrl = () => {
   // For Expo development, use your local machine's IP address
-  // Replace with your actual IP address when testing on physical device
   if (__DEV__) {
-    // For Android emulator, use 10.0.2.2
+    // For physical device testing, use your computer's IP address
+    // Find your IP: Run 'ipconfig' (Windows) or 'ifconfig' (Mac/Linux)
+    // const PHYSICAL_DEVICE_IP = 'http://10.100.59.248:3000'; // Replace with your IP
+    
+    // For Android emulator, use 10.0.2.2 (special alias to host machine)
+    if (Platform.OS === 'android') {
+      // Check if running on physical device (has a real IP in manifest)
+      const { manifest } = Constants;
+      if (manifest?.debuggerHost) {
+        // Extract IP from debuggerHost (format: "192.168.1.100:19000")
+        const ip = manifest.debuggerHost.split(':')[0];
+        console.log('Using physical device IP:', ip);
+        return `http://${ip}:3000`;
+      }
+      // Android emulator - try your computer's IP first, fallback to 10.0.2.2
+      // If 10.0.2.2 doesn't work due to firewall, use your computer's actual IP
+      console.log('Using computer IP for Android emulator: 10.100.59.248:3000');
+      return 'http://10.100.59.248:3000';
+    }
     // For iOS simulator, use localhost
-    // For physical device, use your computer's IP address
+    console.log('Using iOS simulator IP: localhost:3000');
     return 'http://localhost:3000';
   }
   
@@ -18,9 +38,15 @@ const getApiUrl = () => {
   return 'https://api.animalrescue.com';
 };
 
+const API_URL = getApiUrl();
+console.log('=== API Configuration ===');
+console.log('API URL:', API_URL);
+console.log('Platform:', Platform.OS);
+console.log('========================');
+
 const config = {
   // API Configuration
-  API_URL: getApiUrl(),
+  API_URL,
   API_TIMEOUT: 30000, // 30 seconds
   
   // Socket.io Configuration

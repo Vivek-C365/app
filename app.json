@@ -5,9 +5,11 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "scheme": "com.animalrescue.mobile",
     "assetBundlePatterns": [
       "**/*"
     ],
+    "owner": "vivekc365",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.animalrescue.mobile",
@@ -27,7 +29,8 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "NOTIFICATIONS"
-      ]
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       [

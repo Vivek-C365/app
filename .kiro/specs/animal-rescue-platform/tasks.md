@@ -44,11 +44,7 @@
   - Set up MongoDB indexes for geospatial queries and performance
   - _Requirements: 1.2, 2.1, 3.3, 5.1_
 
-- [-] 4. Build mobile authentication screens and flows
-
-
-
-
+- [x] 4. Build mobile authentication screens and flows
 
 
 
@@ -60,9 +56,7 @@
   - Build onboarding screens for first-time users
   - _Requirements: 3.1, 3.2_
 
-- [ ] 5. Implement backend authentication and user management
-
-
+- [x] 5. Implement backend authentication and user management
 
 
 

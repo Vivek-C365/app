@@ -35,7 +35,7 @@ const getApiUrl = () => {
   }
   
   // Production API URL
-  return 'https://api.animalrescue.com';
+  return 'https://animal-rescue-platform.onrender.com';
 };
 
 const API_URL = getApiUrl();

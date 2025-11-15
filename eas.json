@@ -12,7 +12,14 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://animal-rescue-platform.onrender.com",
+        "EXPO_PUBLIC_SOCKET_URL": "https://animal-rescue-platform.onrender.com"
+      },
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {

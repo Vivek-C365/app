@@ -6,41 +6,13 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-// Determine the API URL based on environment
-const getApiUrl = () => {
-  // For Expo development, use your local machine's IP address
-  if (__DEV__) {
-    // For physical device testing, use your computer's IP address
-    // Find your IP: Run 'ipconfig' (Windows) or 'ifconfig' (Mac/Linux)
-    // const PHYSICAL_DEVICE_IP = 'http://10.100.59.248:3000'; // Replace with your IP
-    
-    // For Android emulator, use 10.0.2.2 (special alias to host machine)
-    if (Platform.OS === 'android') {
-      // Check if running on physical device (has a real IP in manifest)
-      const { manifest } = Constants;
-      if (manifest?.debuggerHost) {
-        // Extract IP from debuggerHost (format: "192.168.1.100:19000")
-        const ip = manifest.debuggerHost.split(':')[0];
-        console.log('Using physical device IP:', ip);
-        return `http://${ip}:3000`;
-      }
-      // Android emulator - try your computer's IP first, fallback to 10.0.2.2
-      // If 10.0.2.2 doesn't work due to firewall, use your computer's actual IP
-      console.log('Using computer IP for Android emulator: 10.100.59.248:3000');
-      return 'http://10.100.59.248:3000';
-    }
-    // For iOS simulator, use localhost
-    console.log('Using iOS simulator IP: localhost:3000');
-    return 'http://localhost:3000';
-  }
-  
-  // Production API URL
-  return 'https://animal-rescue-platform.onrender.com';
-};
+// NOTE: This app uses Supabase, not a custom backend API
+// The old Express backend is no longer used
+// All API calls should go through Supabase client (src/config/supabase.js)
+const API_URL = null; // Deprecated - use Supabase instead
 
-const API_URL = getApiUrl();
 console.log('=== API Configuration ===');
-console.log('API URL:', API_URL);
+console.log('Backend: Supabase');
 console.log('Platform:', Platform.OS);
 console.log('========================');
 
@@ -49,8 +21,8 @@ const config = {
   API_URL,
   API_TIMEOUT: 30000, // 30 seconds
   
-  // Socket.io Configuration
-  SOCKET_URL: getApiUrl(),
+  // Socket.io Configuration (deprecated - use Supabase Realtime)
+  SOCKET_URL: null,
   
   // Map Configuration
   DEFAULT_LOCATION: {

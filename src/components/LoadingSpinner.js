@@ -12,7 +12,7 @@ export default function LoadingSpinner({
   fullScreen = false 
 }) {
   const content = (
-    <View style={[styles.container, fullScreen && styles.fullScreen]}>
+    <View style={[styles.container, fullScreen ? styles.fullScreen : null]}>
       <ActivityIndicator size={size} color={color} />
       {message && <Text style={styles.message}>{message}</Text>}
     </View>

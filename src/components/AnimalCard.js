@@ -56,7 +56,6 @@ export default function AnimalCard({
               <View style={styles.overlayContent}>
                 <View style={styles.topRow}>
                   <View>
-                    <Text style={styles.caseId}>{id}</Text>
                     <Text style={styles.animalName}>{name || type}</Text>
                   </View>
                   <StatusBadge status={status} size="small" />

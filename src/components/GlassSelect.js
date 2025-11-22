@@ -26,7 +26,7 @@ export default function GlassSelect({
       {label && <Text style={styles.label}>{label}</Text>}
       
       <TouchableOpacity
-        style={[styles.selectButton, error && styles.selectError]}
+        style={[styles.selectButton, error ? styles.selectError : null]}
         onPress={() => setShowOptions(true)}
       >
         <View style={styles.selectContent}>

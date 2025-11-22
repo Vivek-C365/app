@@ -13,6 +13,7 @@ import { theme } from '../theme';
 import GlassCard from '../components/GlassCard';
 import GlassButton from '../components/GlassButton';
 import LoadingSpinner from '../components/LoadingSpinner';
+import DocumentPreview from '../components/DocumentPreview';
 import { supabase } from '../config/supabase';
 import toast from '../utils/toast';
 
@@ -21,6 +22,8 @@ export default function VerificationScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [uploadingDoc, setUploadingDoc] = useState(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
   const insets = useSafeAreaInsets();
 
   const verificationStatus = profile?.verification?.status || 'not_submitted';
@@ -77,6 +80,51 @@ export default function VerificationScreen({ navigation }) {
     return doc?.verification_status || 'not_uploaded';
   };
 
+  const showDocumentOptions = (docType, label) => {
+    Alert.alert(
+      'Upload Document',
+      'Choose how you want to upload your document',
+      [
+        {
+          text: 'Take Photo',
+          onPress: () => captureDocument(docType, label),
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: () => pickDocument(docType, label),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
+  const captureDocument = async (docType, label) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        toast.error('Permission Denied', 'Camera permission is required');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+        exif: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await previewAndUpload(docType, label, result.assets[0].uri, 'image/jpeg');
+      }
+    } catch (error) {
+      console.error('Error capturing document:', error);
+      toast.error('Error', 'Failed to capture document');
+    }
+  };
+
   const pickDocument = async (docType, label) => {
     try {
       // For photo type, use image picker
@@ -95,7 +143,7 @@ export default function VerificationScreen({ navigation }) {
         });
 
         if (!result.canceled && result.assets[0]) {
-          await uploadDocument(docType, label, result.assets[0].uri, 'image/jpeg');
+          await previewAndUpload(docType, label, result.assets[0].uri, 'image/jpeg');
         }
       } else {
         // For other documents, use document picker
@@ -105,13 +153,43 @@ export default function VerificationScreen({ navigation }) {
         });
 
         if (result.type === 'success') {
-          await uploadDocument(docType, label, result.uri, result.mimeType);
+          await previewAndUpload(docType, label, result.uri, result.mimeType);
         }
       }
     } catch (error) {
       console.error('Error picking document:', error);
       toast.error('Error', 'Failed to pick document');
     }
+  };
+
+  const previewAndUpload = async (docType, label, uri, mimeType) => {
+    // Show preview modal
+    setPreviewData({
+      docType,
+      label,
+      uri,
+      mimeType,
+    });
+    setPreviewVisible(true);
+  };
+
+  const handlePreviewConfirm = () => {
+    if (previewData) {
+      setPreviewVisible(false);
+      uploadDocument(previewData.docType, previewData.label, previewData.uri, previewData.mimeType);
+    }
+  };
+
+  const handlePreviewRetake = () => {
+    if (previewData) {
+      setPreviewVisible(false);
+      showDocumentOptions(previewData.docType, previewData.label);
+    }
+  };
+
+  const handlePreviewClose = () => {
+    setPreviewVisible(false);
+    setPreviewData(null);
   };
 
   const uploadDocument = async (docType, label, uri, mimeType) => {
@@ -321,7 +399,7 @@ export default function VerificationScreen({ navigation }) {
                   <LoadingSpinner size="small" />
                 ) : (
                   <TouchableOpacity
-                    onPress={() => pickDocument(doc.type, doc.label)}
+                    onPress={() => showDocumentOptions(doc.type, doc.label)}
                     style={styles.uploadButton}
                     disabled={status === 'approved'}
                   >
@@ -346,6 +424,16 @@ export default function VerificationScreen({ navigation }) {
           </View>
         )}
       </ScrollView>
+
+      <DocumentPreview
+        visible={previewVisible}
+        documentUri={previewData?.uri}
+        documentType={previewData?.docType}
+        mimeType={previewData?.mimeType}
+        onConfirm={handlePreviewConfirm}
+        onRetake={handlePreviewRetake}
+        onClose={handlePreviewClose}
+      />
     </View>
   );
 }

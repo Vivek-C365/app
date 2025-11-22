@@ -41,6 +41,16 @@ export const signUp = async (userData) => {
 
     if (error) {
       console.error('Sign up error:', error);
+      
+      // Handle rate limiting with user-friendly message
+      if (error.message.includes('request this after')) {
+        return {
+          success: false,
+          error: 'Too many signup attempts. Please wait a minute and try again.',
+          isRateLimit: true,
+        };
+      }
+      
       return {
         success: false,
         error: error.message,
@@ -343,7 +353,10 @@ export const refreshSession = async () => {
     const { data, error } = await supabase.auth.refreshSession();
 
     if (error) {
-      console.error('Refresh session error:', error);
+      // Don't log "Auth session missing" as an error - it's expected when not logged in
+      if (error.message !== 'Auth session missing!') {
+        console.error('Refresh session error:', error);
+      }
       return {
         success: false,
         error: error.message,

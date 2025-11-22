@@ -108,7 +108,7 @@ export default function PhotoPreview({ photos, onConfirm, onRetake, onRemove, on
         {photos.length > 1 && (
           <View style={styles.navigation}>
             <TouchableOpacity
-              style={[styles.navButton, currentIndex === 0 && styles.navButtonDisabled]}
+              style={[styles.navButton, currentIndex === 0 ? styles.navButtonDisabled : null]}
               onPress={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
               disabled={currentIndex === 0}
             >
@@ -124,7 +124,7 @@ export default function PhotoPreview({ photos, onConfirm, onRetake, onRemove, on
             </Text>
             
             <TouchableOpacity
-              style={[styles.navButton, currentIndex === photos.length - 1 && styles.navButtonDisabled]}
+              style={[styles.navButton, currentIndex === photos.length - 1 ? styles.navButtonDisabled : null]}
               onPress={() => setCurrentIndex(Math.min(photos.length - 1, currentIndex + 1))}
               disabled={currentIndex === photos.length - 1}
             >

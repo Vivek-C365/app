@@ -80,7 +80,7 @@ export default function GlassButton({
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.7}
-      style={[styles.container, disabled && styles.disabled, style]}
+      style={[styles.container, disabled ? styles.disabled : null, style]}
     >
       <View 
         style={[

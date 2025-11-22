@@ -2,9 +2,9 @@
  * Search Screen
  * Search for animal rescue cases
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity, Switch } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import GlassCard from '../components/GlassCard';
@@ -12,6 +12,9 @@ import AnimalCard from '../components/AnimalCard';
 import StatusBadge from '../components/StatusBadge';
 import BottomSheet from '../components/BottomSheet';
 import GlassButton from '../components/GlassButton';
+import LoadingSpinner from '../components/LoadingSpinner';
+import caseService from '../services/caseService';
+import toast from '../utils/toast';
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,7 +28,87 @@ export default function SearchScreen() {
     dateRange: 'all',
     hasPhoto: false,
   });
+  const [searchResults, setSearchResults] = useState([]);
+  const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
+
+  // Perform search when query or filters change
+  useEffect(() => {
+    if (searchQuery.trim().length > 0) {
+      performSearch();
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery, customFilters]);
+
+  const performSearch = async () => {
+    try {
+      setLoading(true);
+      
+      const filters = {
+        searchText: searchQuery.trim(),
+        animalType: customFilters.animalType !== 'all' ? customFilters.animalType : undefined,
+        status: customFilters.status !== 'all' ? customFilters.status : undefined,
+        urgencyLevel: customFilters.urgency !== 'all' ? customFilters.urgency : undefined,
+        limit: 50,
+      };
+
+      const response = await caseService.searchCases(filters);
+      
+      if (response.success) {
+        // Transform cases to match AnimalCard format
+        const transformedCases = response.cases.map(caseItem => ({
+          id: caseItem.id,
+          name: getAnimalName(caseItem.animal_type),
+          type: capitalizeFirst(caseItem.animal_type),
+          status: capitalizeFirst(caseItem.status),
+          location: caseItem.location_address || caseItem.location_landmarks || 'Unknown location',
+          time: getTimeAgo(caseItem.created_at),
+          condition: caseItem.description,
+          reporter: caseItem.contact_info?.name || 'Anonymous',
+          imageUrl: caseItem.photos && caseItem.photos.length > 0 ? caseItem.photos[0] : null,
+        }));
+        
+        setSearchResults(transformedCases);
+      } else {
+        toast.error('Search Failed', response.error || 'Could not search cases');
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error('Search Failed', 'Please try again');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getAnimalName = (type) => {
+    const names = {
+      dog: 'Dog',
+      cat: 'Cat',
+      bird: 'Bird',
+      cow: 'Cow',
+      other: 'Animal'
+    };
+    return names[type] || 'Animal';
+  };
+
+  const capitalizeFirst = (str) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  const getTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
 
   const filters = [
     { id: 'all', label: 'All', icon: 'pets' },
@@ -41,36 +124,13 @@ export default function SearchScreen() {
     'Bird trapped',
   ];
 
-  const searchResults = [
-    {
-      id: 'AR-2024-004',
-      name: 'Max',
-      type: 'Dog',
-      status: 'Active',
-      location: 'Bandra, Mumbai',
-      time: '1h ago',
-      condition: 'Lost and scared',
-      imageUrl: null,
-    },
-    {
-      id: 'AR-2024-005',
-      name: 'Whiskers',
-      type: 'Cat',
-      status: 'Assigned',
-      location: 'Powai, Mumbai',
-      time: '3h ago',
-      condition: 'Needs medical attention',
-      imageUrl: null,
-    },
-  ];
-
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + 20,
+            paddingTop: 20,
             paddingBottom: insets.bottom + 140,
           },
         ]}
@@ -192,17 +252,31 @@ export default function SearchScreen() {
         {/* Search Results */}
         {searchQuery.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {searchResults.length} Results Found
-            </Text>
-            {searchResults.map((caseItem) => (
-              <AnimalCard
-                key={caseItem.id}
-                {...caseItem}
-                onPress={() => {}}
-                onHelp={() => {}}
-              />
-            ))}
+            {loading ? (
+              <LoadingSpinner />
+            ) : (
+              <>
+                <Text style={styles.sectionTitle}>
+                  {searchResults.length} Results Found
+                </Text>
+                {searchResults.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <MaterialIcons name="search-off" size={64} color={theme.colors.textTertiary} />
+                    <Text style={styles.emptyText}>No cases found</Text>
+                    <Text style={styles.emptySubtext}>Try adjusting your search or filters</Text>
+                  </View>
+                ) : (
+                  searchResults.map((caseItem) => (
+                    <AnimalCard
+                      key={caseItem.id}
+                      {...caseItem}
+                      onPress={() => {}}
+                      onHelp={() => {}}
+                    />
+                  ))
+                )}
+              </>
+            )}
           </View>
         )}
       </ScrollView>
@@ -393,7 +467,7 @@ export default function SearchScreen() {
           </View>
         </ScrollView>
       </BottomSheet>
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -24,8 +24,11 @@ import MapView, { Marker } from 'react-native-maps';
 import { theme } from '../theme';
 import LoadingSpinner from '../components/LoadingSpinner';
 import StatusBadge from '../components/StatusBadge';
+import VerificationBadge from '../components/VerificationBadge';
 import GlassButton from '../components/GlassButton';
-import apiService from '../../services/api';
+import StatusUpdateTimeline from '../components/StatusUpdateTimeline';
+import apiService from '../services/apiService';
+import caseService from '../services/caseService';
 import toast from '../utils/toast';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -69,9 +72,9 @@ export default function CaseDetailsScreen({ route, navigation }) {
   const fetchCaseDetails = async () => {
     try {
       setLoading(true);
-      const response = await apiService.getCaseById(caseId);
-      if (response.success && response.data) {
-        setCaseData(response.data);
+      const response = await caseService.getCaseById(caseId);
+      if (response.success && response.case) {
+        setCaseData(response.case);
       }
     } catch (error) {
       toast.error('Failed to load case', 'Please try again');
@@ -94,9 +97,9 @@ export default function CaseDetailsScreen({ route, navigation }) {
 
   const fetchTimeline = async () => {
     try {
-      const response = await apiService.getCaseTimeline(caseId);
-      if (response.success && response.data) {
-        setTimeline(response.data.timeline || []);
+      const response = await caseService.getCaseTimeline(caseId);
+      if (response.success && response.timeline) {
+        setTimeline(response.timeline || []);
       }
     } catch (error) {
       console.log('Error fetching timeline:', error);
@@ -235,7 +238,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
           <MaterialIcons name="arrow-back" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{caseData.caseId}</Text>
+          <Text style={styles.headerTitle}>Case Details</Text>
           <StatusBadge status={capitalizeFirst(caseData.status)} size="small" />
         </View>
         <TouchableOpacity onPress={handleShare} style={styles.shareButton}>
@@ -246,7 +249,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
       {/* Tabs */}
       <View style={styles.tabs}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'details' && styles.tabActive]}
+          style={[styles.tab, activeTab === 'details' ? styles.tabActive : null]}
           onPress={() => setActiveTab('details')}
         >
           <MaterialIcons 
@@ -254,13 +257,13 @@ export default function CaseDetailsScreen({ route, navigation }) {
             size={20} 
             color={activeTab === 'details' ? theme.colors.primary : theme.colors.textSecondary} 
           />
-          <Text style={[styles.tabText, activeTab === 'details' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, activeTab === 'details' ? styles.tabTextActive : null]}>
             Details
           </Text>
         </TouchableOpacity>
         
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'messages' && styles.tabActive]}
+          style={[styles.tab, activeTab === 'messages' ? styles.tabActive : null]}
           onPress={() => setActiveTab('messages')}
         >
           <MaterialIcons 
@@ -268,13 +271,13 @@ export default function CaseDetailsScreen({ route, navigation }) {
             size={20} 
             color={activeTab === 'messages' ? theme.colors.primary : theme.colors.textSecondary} 
           />
-          <Text style={[styles.tabText, activeTab === 'messages' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, activeTab === 'messages' ? styles.tabTextActive : null]}>
             Messages
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'timeline' && styles.tabActive]}
+          style={[styles.tab, activeTab === 'timeline' ? styles.tabActive : null]}
           onPress={() => setActiveTab('timeline')}
         >
           <MaterialIcons 
@@ -282,7 +285,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
             size={20} 
             color={activeTab === 'timeline' ? theme.colors.primary : theme.colors.textSecondary} 
           />
-          <Text style={[styles.tabText, activeTab === 'timeline' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, activeTab === 'timeline' ? styles.tabTextActive : null]}>
             Timeline
           </Text>
         </TouchableOpacity>
@@ -458,7 +461,16 @@ export default function CaseDetailsScreen({ route, navigation }) {
                 <View key={index} style={styles.helperCard}>
                   <MaterialIcons name="person" size={24} color={theme.colors.primary} />
                   <View style={styles.helperInfo}>
-                    <Text style={styles.helperName}>{helper.name}</Text>
+                    <View style={styles.helperNameRow}>
+                      <Text style={styles.helperName}>{helper.name}</Text>
+                      {helper.verification?.status && (
+                        <VerificationBadge 
+                          status={helper.verification.status} 
+                          size="small" 
+                          showText={false}
+                        />
+                      )}
+                    </View>
                     <Text style={styles.helperType}>{capitalizeFirst(helper.userType)}</Text>
                   </View>
                 </View>
@@ -528,7 +540,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
               maxLength={2000}
             />
             <TouchableOpacity 
-              style={[styles.sendButton, !messageText.trim() && styles.sendButtonDisabled]}
+              style={[styles.sendButton, !messageText.trim() ? styles.sendButtonDisabled : null]}
               onPress={handleSendMessage}
               disabled={!messageText.trim() || sendingMessage}
             >
@@ -543,272 +555,69 @@ export default function CaseDetailsScreen({ route, navigation }) {
       )}
 
       {activeTab === 'timeline' && (
-        <ScrollView 
-          style={styles.content}
-          contentContainerStyle={[
-            styles.contentContainer, 
-            { paddingBottom: isUserAssigned() && caseData.status !== 'resolved' && caseData.status !== 'closed' 
-              ? insets.bottom + 200 
-              : insets.bottom + 100 
+        <View style={styles.content}>
+          <ScrollView 
+            contentContainerStyle={[
+              styles.contentContainer, 
+              { paddingBottom: isUserAssigned() && caseData.status !== 'resolved' && caseData.status !== 'closed' 
+                ? insets.bottom + 200 
+                : insets.bottom + 100 
+              }
+            ]}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor={theme.colors.primary}
+                colors={[theme.colors.primary]}
+              />
             }
-          ]}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
+          >
+            <StatusUpdateTimeline 
+              timeline={timeline} 
               onRefresh={handleRefresh}
-              tintColor={theme.colors.primary}
-              colors={[theme.colors.primary]}
             />
-          }
-        >
-          {timeline.length === 0 ? (
-            <View style={styles.emptyTimeline}>
-              <MaterialIcons name="timeline" size={64} color={theme.colors.textSecondary} />
-              <Text style={styles.emptyTimelineText}>No timeline events yet</Text>
-            </View>
-          ) : (
-            <View style={styles.timeline}>
-              {timeline.map((event, index) => {
-                const isExpanded = expandedTimelineItems[index];
-                const hasDetails = event.details && Object.keys(event.details).length > 0;
-                
-                return (
-                  <TouchableOpacity 
-                    key={index} 
-                    style={styles.timelineItem}
-                    onPress={() => hasDetails && toggleTimelineItem(index)}
-                    activeOpacity={hasDetails ? 0.7 : 1}
-                  >
-                    <View style={styles.timelineIconContainer}>
-                      <View style={[styles.timelineIcon, getTimelineIconStyle(event.type)]}>
-                        <MaterialIcons 
-                          name={getTimelineIcon(event.type)} 
-                          size={16} 
-                          color={theme.colors.white} 
-                        />
-                      </View>
-                      {index < timeline.length - 1 && (
-                        <View style={styles.timelineLine} />
-                      )}
-                    </View>
-                    <View style={styles.timelineContent}>
-                      <View style={styles.timelineHeader}>
-                        <Text style={styles.timelineTitle}>{event.title || event.description}</Text>
-                        {hasDetails && (
-                          <MaterialIcons 
-                            name={isExpanded ? 'expand-less' : 'expand-more'} 
-                            size={20} 
-                            color={theme.colors.textSecondary} 
-                          />
-                        )}
-                      </View>
-                      <Text style={styles.timelineTime}>{formatTimeAgo(event.timestamp)}</Text>
-                      
-                      {event.description && event.title && (
-                        <Text style={styles.timelineDescription}>{event.description}</Text>
-                      )}
-
-                      {/* Expanded Details */}
-                      {isExpanded && event.details && (
-                        <View style={styles.timelineDetails}>
-                          {/* Reporter Info */}
-                          {event.details.reporter && (
-                            <View style={styles.timelineDetailSection}>
-                              <Text style={styles.timelineDetailTitle}>Reporter</Text>
-                              <View style={styles.timelineDetailRow}>
-                                <MaterialIcons name="person" size={16} color={theme.colors.textSecondary} />
-                                <Text style={styles.timelineDetailText}>{event.details.reporter.name}</Text>
-                              </View>
-                              {event.details.reporter.phone && (
-                                <View style={styles.timelineDetailRow}>
-                                  <MaterialIcons name="phone" size={16} color={theme.colors.textSecondary} />
-                                  <Text style={styles.timelineDetailText}>{event.details.reporter.phone}</Text>
-                                </View>
-                              )}
-                            </View>
-                          )}
-
-                          {/* Helper Info */}
-                          {event.details.helper && (
-                            <View style={styles.timelineDetailSection}>
-                              <Text style={styles.timelineDetailTitle}>Helper</Text>
-                              <View style={styles.timelineDetailRow}>
-                                <MaterialIcons name="person" size={16} color={theme.colors.textSecondary} />
-                                <Text style={styles.timelineDetailText}>
-                                  {event.details.helper.name}
-                                  {event.details.helper.organization && ` (${event.details.helper.organization})`}
-                                </Text>
-                              </View>
-                              <View style={styles.timelineDetailRow}>
-                                <MaterialIcons name="badge" size={16} color={theme.colors.textSecondary} />
-                                <Text style={styles.timelineDetailText}>{capitalizeFirst(event.details.helper.userType)}</Text>
-                              </View>
-                            </View>
-                          )}
-
-                          {/* Updated By Info */}
-                          {event.details.updatedBy && (
-                            <View style={styles.timelineDetailSection}>
-                              <Text style={styles.timelineDetailTitle}>Updated By</Text>
-                              <View style={styles.timelineDetailRow}>
-                                <MaterialIcons name="person" size={16} color={theme.colors.textSecondary} />
-                                <Text style={styles.timelineDetailText}>
-                                  {event.details.updatedBy.name}
-                                  {event.details.updatedBy.organization && ` (${event.details.updatedBy.organization})`}
-                                </Text>
-                              </View>
-                            </View>
-                          )}
-
-                          {/* Animal & Condition */}
-                          {event.details.animalType && (
-                            <View style={styles.timelineDetailSection}>
-                              <Text style={styles.timelineDetailTitle}>Animal Details</Text>
-                              <View style={styles.timelineDetailRow}>
-                                <MaterialIcons name="pets" size={16} color={theme.colors.textSecondary} />
-                                <Text style={styles.timelineDetailText}>
-                                  {capitalizeFirst(event.details.animalType)} - {capitalizeFirst(event.details.condition)}
-                                </Text>
-                              </View>
-                              {event.details.urgencyLevel && (
-                                <View style={styles.timelineDetailRow}>
-                                  <MaterialIcons name="priority-high" size={16} color={theme.colors.textSecondary} />
-                                  <Text style={[styles.timelineDetailText, { color: getUrgencyColor(event.details.urgencyLevel) }]}>
-                                    {capitalizeFirst(event.details.urgencyLevel)} urgency
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                          )}
-
-                          {/* Status Change */}
-                          {event.details.previousStatus && event.details.newStatus && (
-                            <View style={styles.timelineDetailSection}>
-                              <Text style={styles.timelineDetailTitle}>Status Change</Text>
-                              <View style={styles.timelineDetailRow}>
-                                <MaterialIcons name="swap-horiz" size={16} color={theme.colors.textSecondary} />
-                                <Text style={styles.timelineDetailText}>
-                                  {capitalizeFirst(event.details.previousStatus)} → {capitalizeFirst(event.details.newStatus)}
-                                </Text>
-                              </View>
-                            </View>
-                          )}
-
-                          {/* Location */}
-                          {event.details.location && (
-                            <View style={styles.timelineDetailSection}>
-                              <Text style={styles.timelineDetailTitle}>Location</Text>
-                              <View style={styles.timelineDetailRow}>
-                                <MaterialIcons name="place" size={16} color={theme.colors.textSecondary} />
-                                <Text style={styles.timelineDetailText} numberOfLines={2}>
-                                  {event.details.location}
-                                </Text>
-                              </View>
-                            </View>
-                          )}
-
-                          {/* Full Description */}
-                          {event.details.description && (
-                            <View style={styles.timelineDetailSection}>
-                              <Text style={styles.timelineDetailTitle}>Full Description</Text>
-                              <Text style={styles.timelineDetailDescription}>
-                                {event.details.description}
-                              </Text>
-                            </View>
-                          )}
-
-                          {/* Notes */}
-                          {event.details.notes && (
-                            <View style={styles.timelineDetailSection}>
-                              <Text style={styles.timelineDetailTitle}>Notes</Text>
-                              <Text style={styles.timelineDetailNotes}>
-                                {event.details.notes}
-                              </Text>
-                            </View>
-                          )}
-
-                          {/* Duration */}
-                          {event.details.duration && (
-                            <View style={styles.timelineDetailRow}>
-                              <MaterialIcons name="timer" size={16} color={theme.colors.textSecondary} />
-                              <Text style={styles.timelineDetailText}>Duration: {event.details.duration}</Text>
-                            </View>
-                          )}
-                        </View>
-                      )}
-
-                      {event.photoCount > 0 && !isExpanded && (
-                        <View style={styles.timelinePhotos}>
-                          <MaterialIcons name="photo-library" size={16} color={theme.colors.primary} />
-                          <Text style={styles.timelinePhotosText}>
-                            {event.photoCount} photo{event.photoCount > 1 ? 's' : ''} - Tap to view
-                          </Text>
-                        </View>
-                      )}
-
-                      {/* Display photos when expanded */}
-                      {isExpanded && event.photos && event.photos.length > 0 && (
-                        <View style={styles.timelinePhotoGallery}>
-                          <Text style={styles.timelineDetailTitle}>Photos ({event.photos.length})</Text>
-                          <ScrollView 
-                            horizontal 
-                            showsHorizontalScrollIndicator={false}
-                            style={styles.timelinePhotoScroll}
-                          >
-                            {event.photos.map((photo, photoIndex) => (
-                              <TouchableOpacity 
-                                key={photoIndex}
-                                onPress={() => {
-                                  // Could open full screen image viewer here
-                                  console.log('View photo:', photo);
-                                }}
-                                activeOpacity={0.8}
-                              >
-                                <Image 
-                                  source={{ uri: photo }} 
-                                  style={styles.timelinePhoto}
-                                  resizeMode="cover"
-                                  onError={(error) => {
-                                    console.log('Error loading photo:', error.nativeEvent.error);
-                                  }}
-                                />
-                                <View style={styles.photoOverlay}>
-                                  <MaterialIcons name="zoom-in" size={24} color={theme.colors.white} />
-                                </View>
-                              </TouchableOpacity>
-                            ))}
-                          </ScrollView>
-                        </View>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </ScrollView>
+          </ScrollView>
+        </View>
       )}
+
+
 
       {/* Action Buttons */}
       {activeTab === 'details' && (
         <View style={[styles.actionBar, { paddingBottom: insets.bottom + 80 }]}>
           {caseData.status === 'open' ? (
-            <GlassButton
-              title="I Can Help"
-              onPress={() => {
-                apiService.assignCase(caseId, {})
-                  .then(() => {
-                    toast.success('Success', 'You have been assigned to this case');
-                    fetchCaseDetails();
-                    fetchTimeline();
-                  })
-                  .catch(() => toast.error('Failed', 'Could not assign case'));
-              }}
-              variant="accent"
-              size="large"
-              style={{ flex: 1 }}
-            />
+            <View style={styles.buttonRow}>
+              <GlassButton
+                title="I Can Help"
+                onPress={async () => {
+                  try {
+                    const response = await caseService.assignHelper(caseId, user.id);
+                    if (response.success) {
+                      toast.success('Success', 'You have been assigned to this case');
+                      fetchCaseDetails();
+                      fetchTimeline();
+                    } else {
+                      toast.error('Failed', response.error || 'Could not assign case');
+                    }
+                  } catch (error) {
+                    toast.error('Failed', 'Could not assign case');
+                  }
+                }}
+                variant="accent"
+                size="large"
+                style={{ flex: 1 }}
+              />
+              <GlassButton
+                title="AI Help"
+                onPress={() => navigation.navigate('AIEmergency', { caseId })}
+                variant="secondary"
+                size="large"
+                icon={<MaterialIcons name="psychology" size={20} color={theme.colors.primary} />}
+                style={{ flex: 1 }}
+              />
+            </View>
           ) : isUserAssigned() ? (
             <View style={styles.assignedBadge}>
               <MaterialIcons name="check-circle" size={20} color={theme.colors.success} />
@@ -1158,6 +967,12 @@ const styles = StyleSheet.create({
   helperInfo: {
     flex: 1,
   },
+  helperNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    marginBottom: theme.spacing.xs,
+  },
   helperName: {
     fontSize: theme.typography.fontSize.md,
     fontWeight: theme.typography.fontWeight.semibold,
@@ -1495,5 +1310,9 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.textPrimary,
     marginTop: theme.spacing.md,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
   },
 });

@@ -77,17 +77,41 @@ serve(async (req: Request) => {
 
     console.log(`Found ${helpers?.length || 0} nearby helpers`)
 
-    // TODO: Send notifications to helpers
-    // This will be implemented in the send-notifications function
-    // For now, just log the helpers
+    // Create case assignments for nearby helpers
+    let assignmentsCreated = 0
     if (helpers && helpers.length > 0) {
-      console.log('Helpers to notify:', helpers.map((h: any) => h.name))
+      console.log('Creating assignments for helpers:', helpers.map((h: any) => h.name))
+      
+      for (const helper of helpers) {
+        try {
+          const { error: assignError } = await supabaseClient
+            .from('case_assignments')
+            .insert({
+              case_id: caseId,
+              helper_id: helper.helper_id,
+              status: 'pending'
+            })
+          
+          if (!assignError) {
+            assignmentsCreated++
+          } else {
+            console.error(`Failed to assign helper ${helper.helper_id}:`, assignError)
+          }
+        } catch (err) {
+          console.error(`Exception assigning helper ${helper.helper_id}:`, err)
+        }
+      }
     }
+
+    // TODO: Send notifications to helpers
+    // This will be implemented in task 18 (send-notifications function)
+    // For now, assignments are created and ready for notification
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         helpersNotified: helpers?.length || 0,
+        assignmentsCreated,
         helpers: helpers?.map((h: any) => ({ id: h.helper_id, name: h.name, distance: h.distance_km }))
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

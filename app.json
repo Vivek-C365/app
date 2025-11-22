@@ -10,10 +10,17 @@
       "**/*"
     ],
     "owner": "vivekc365",
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#000000",
+      "translucent": false
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.animalrescue.mobile",
+      "statusBarStyle": "light",
       "infoPlist": {
+        "UIViewControllerBasedStatusBarAppearance": false,
         "NSCameraUsageDescription": "This app needs access to your camera to take photos of animals in distress.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select photos of animals.",
         "NSLocationWhenInUseUsageDescription": "This app needs your location to match you with nearby volunteers and animals in need.",

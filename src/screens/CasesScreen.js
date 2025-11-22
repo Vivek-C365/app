@@ -4,7 +4,7 @@
  */
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, useWindowDimensions, TouchableOpacity, RefreshControl, TextInput } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -15,7 +15,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import BottomSheet from '../components/BottomSheet';
 import GlassButton from '../components/GlassButton';
 import GlassInput from '../components/GlassInput';
-import apiService from '../../services/api';
+import apiService from '../services/apiService';
+import caseService from '../services/caseService';
 import toast from '../utils/toast';
 import { calculateDistance, formatDistance } from '../utils/locationUtils';
 import { saveToCache, getFromCache } from '../utils/cacheUtils';
@@ -104,10 +105,9 @@ export default function CasesScreen() {
         
         // Fetch cases assigned to the current user
         // Use myOnly parameter to filter by authenticated user
-        response = await apiService.getCases({ 
-          status: 'assigned,in_progress', 
-          limit: 50,
-          myOnly: true 
+        response = await caseService.getCases({ 
+          status: 'assigned', 
+          limit: 50
         });
         
         console.log('My cases response:', response);
@@ -124,8 +124,8 @@ export default function CasesScreen() {
         console.log('Fetching reported cases for user:', user?.id || user?._id);
         
         // Fetch cases reported by the current user
-        response = await apiService.getCases({ 
-          reportedBy: user?.id || user?._id,
+        // TODO: Add reporter filter to caseService
+        response = await caseService.getCases({ 
           limit: 50
         });
         
@@ -143,36 +143,35 @@ export default function CasesScreen() {
         console.log('Fetching case history for NGO:', user?.id || user?._id);
         
         // Fetch all cases (resolved and closed) that the NGO has worked on
-        response = await apiService.getCases({ 
-          status: 'resolved,closed',
-          myOnly: true,
+        response = await caseService.getCases({ 
+          status: 'resolved',
           limit: 100
         });
         
         console.log('Case history response:', response);
       } else {
         // Fetch open cases
-        response = await apiService.getCases({ status: 'open', limit: 50 });
+        response = await caseService.getCases({ status: 'open', limit: 50 });
       }
       
-      if (response.success && response.data) {
+      if (response.success && response.cases) {
         // Transform API data to match component format
-        const transformedCases = response.data.cases.map(caseItem => ({
-          id: caseItem.caseId || caseItem._id,
-          dbId: caseItem._id,
-          name: getAnimalName(caseItem.animalType),
-          type: capitalizeFirst(caseItem.animalType),
+        const transformedCases = response.cases.map(caseItem => ({
+          id: caseItem.id,
+          dbId: caseItem.id,
+          name: getAnimalName(caseItem.animal_type),
+          type: capitalizeFirst(caseItem.animal_type),
           status: capitalizeFirst(caseItem.status),
-          location: caseItem.location.address || caseItem.location.landmarks || 'Unknown location',
-          time: getTimeAgo(caseItem.createdAt),
+          location: caseItem.location_address || caseItem.location_landmarks || 'Unknown location',
+          time: getTimeAgo(caseItem.created_at),
           condition: caseItem.description,
-          reporter: caseItem.contactInfo?.name || 'Anonymous',
+          reporter: caseItem.contact_info?.name || caseItem.reporter?.name || 'Anonymous',
           imageUrl: caseItem.photos && caseItem.photos.length > 0 ? caseItem.photos[0] : null,
           fullData: caseItem,
-          coordinates: caseItem.location.coordinates,
-          animalType: caseItem.animalType,
-          urgencyLevel: caseItem.urgencyLevel,
-          createdAt: caseItem.createdAt
+          coordinates: caseItem.location_point ? extractCoordinates(caseItem.location_point) : null,
+          animalType: caseItem.animal_type,
+          urgencyLevel: caseItem.urgency_level,
+          createdAt: caseItem.created_at
         }));
         
         setCases(transformedCases);
@@ -327,6 +326,33 @@ export default function CasesScreen() {
     fetchCases();
   };
 
+  const extractCoordinates = (locationPoint) => {
+    // locationPoint is a PostGIS geography object
+    // It might come as a string like "POINT(lng lat)" or as an object
+    if (!locationPoint) return null;
+    
+    // If it's already an object with coordinates
+    if (locationPoint.coordinates) {
+      return {
+        longitude: locationPoint.coordinates[0],
+        latitude: locationPoint.coordinates[1]
+      };
+    }
+    
+    // If it's a string, parse it
+    if (typeof locationPoint === 'string') {
+      const match = locationPoint.match(/POINT\(([^ ]+) ([^ ]+)\)/);
+      if (match) {
+        return {
+          longitude: parseFloat(match[1]),
+          latitude: parseFloat(match[2])
+        };
+      }
+    }
+    
+    return null;
+  };
+
   const getAnimalName = (type) => {
     const names = {
       dog: 'Buddy',
@@ -440,12 +466,12 @@ export default function CasesScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView 
         contentContainerStyle={[
           styles.content,
           { 
-            paddingTop: insets.top + 20,
+            paddingTop: 20,
             paddingBottom: insets.bottom + 140,
             paddingHorizontal: isSmallScreen ? theme.spacing.md : theme.spacing.lg,
           }
@@ -494,7 +520,7 @@ export default function CasesScreen() {
             )}
           </View>
           <TouchableOpacity 
-            style={[styles.filterButton, hasActiveFilters() && styles.filterButtonActive]}
+            style={[styles.filterButton, hasActiveFilters() ? styles.filterButtonActive : null]}
             onPress={() => setShowFilterSheet(true)}
           >
             <MaterialIcons 
@@ -550,7 +576,7 @@ export default function CasesScreen() {
           contentContainerStyle={styles.tabsContent}
         >
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'all' && styles.tabActive]}
+            style={[styles.tab, activeTab === 'all' ? styles.tabActive : null]}
             onPress={() => setActiveTab('all')}
           >
             <MaterialIcons 
@@ -558,13 +584,13 @@ export default function CasesScreen() {
               size={20} 
               color={activeTab === 'all' ? theme.colors.primary : theme.colors.textSecondary} 
             />
-            <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>
+            <Text style={[styles.tabText, activeTab === 'all' ? styles.tabTextActive : null]}>
               All Cases
             </Text>
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'my' && styles.tabActive]}
+            style={[styles.tab, activeTab === 'my' ? styles.tabActive : null]}
             onPress={() => setActiveTab('my')}
           >
             <MaterialIcons 
@@ -572,13 +598,13 @@ export default function CasesScreen() {
               size={20} 
               color={activeTab === 'my' ? theme.colors.primary : theme.colors.textSecondary} 
             />
-            <Text style={[styles.tabText, activeTab === 'my' && styles.tabTextActive]}>
+            <Text style={[styles.tabText, activeTab === 'my' ? styles.tabTextActive : null]}>
               My Cases
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'reported' && styles.tabActive]}
+            style={[styles.tab, activeTab === 'reported' ? styles.tabActive : null]}
             onPress={() => setActiveTab('reported')}
           >
             <MaterialIcons 
@@ -586,7 +612,7 @@ export default function CasesScreen() {
               size={20} 
               color={activeTab === 'reported' ? theme.colors.primary : theme.colors.textSecondary} 
             />
-            <Text style={[styles.tabText, activeTab === 'reported' && styles.tabTextActive]}>
+            <Text style={[styles.tabText, activeTab === 'reported' ? styles.tabTextActive : null]}>
               Reported
             </Text>
           </TouchableOpacity>
@@ -594,7 +620,7 @@ export default function CasesScreen() {
           {/* History Tab - Only for NGOs */}
           {user?.userType === 'ngo' && (
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'history' && styles.tabActive]}
+              style={[styles.tab, activeTab === 'history' ? styles.tabActive : null]}
               onPress={() => setActiveTab('history')}
             >
               <MaterialIcons 
@@ -602,7 +628,7 @@ export default function CasesScreen() {
                 size={20} 
                 color={activeTab === 'history' ? theme.colors.primary : theme.colors.textSecondary} 
               />
-              <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
+              <Text style={[styles.tabText, activeTab === 'history' ? styles.tabTextActive : null]}>
                 History
               </Text>
             </TouchableOpacity>
@@ -1118,7 +1144,7 @@ export default function CasesScreen() {
           </View>
         </View>
       </BottomSheet>
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -19,6 +19,7 @@ import EditProfileScreen from '../screens/EditProfileScreen';
 import ServiceAreasScreen from '../screens/ServiceAreasScreen';
 import VerificationScreen from '../screens/VerificationScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import AIEmergencyScreen from '../screens/AIEmergencyScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -28,7 +29,7 @@ function getTabBarVisibility(route) {
   const routeName = getFocusedRouteNameFromRoute(route) ?? 'CasesList';
   
   // Hide tab bar on these screens
-  const hideTabBarScreens = ['CaseDetails', 'AddStatusUpdate', 'EditProfile', 'ServiceAreas', 'Verification', 'Settings'];
+  const hideTabBarScreens = ['CaseDetails', 'AddStatusUpdate', 'AIEmergency', 'EditProfile', 'ServiceAreas', 'Verification', 'Settings'];
   
   return !hideTabBarScreens.includes(routeName);
 }
@@ -45,6 +46,7 @@ function CasesStack() {
       <Stack.Screen name="CasesList" component={CasesScreen} />
       <Stack.Screen name="CaseDetails" component={CaseDetailsScreen} />
       <Stack.Screen name="AddStatusUpdate" component={AddStatusUpdateScreen} />
+      <Stack.Screen name="AIEmergency" component={AIEmergencyScreen} />
     </Stack.Navigator>
   );
 }

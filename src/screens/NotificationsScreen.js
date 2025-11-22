@@ -4,7 +4,7 @@
  */
 import { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import GlassCard from '../components/GlassCard';
@@ -87,12 +87,12 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + 20,
+            paddingTop: 20,
             paddingBottom: insets.bottom + 140,
           },
         ]}
@@ -179,7 +179,7 @@ export default function NotificationsScreen() {
           </GlassCard>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -141,7 +141,7 @@ export default function CameraCapture({ onCapture, onClose }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.captureButton, isCapturing && styles.captureButtonDisabled]}
+          style={[styles.captureButton, isCapturing ? styles.captureButtonDisabled : null]}
           onPress={handleCapture}
           disabled={isCapturing}
         >

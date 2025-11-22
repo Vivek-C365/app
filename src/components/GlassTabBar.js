@@ -15,7 +15,6 @@ const getResponsiveSizes = (screenWidth) => {
   return {
     TAB_BAR_HEIGHT: isSmallScreen ? 60 : 70,
     ICON_SIZE: isSmallScreen ? 46 : 52,
-    PROFILE_RING_SIZE: isSmallScreen ? 56 : 62,
     ICON_SPACING: 8,
     HORIZONTAL_PADDING: isSmallScreen ? 12 : isMediumScreen ? 16 : 20,
   };
@@ -61,46 +60,21 @@ export default function GlassTabBar({ state, descriptors, navigation }) {
                 style={styles.tab}
                 activeOpacity={0.6}
               >
-                {isProfile ? (
-                  // Profile tab with red ring (same size as others)
-                  <View style={styles.profileContainer}>
-                    {isFocused && <View style={[styles.profileRing, {
-                      width: sizes.PROFILE_RING_SIZE,
-                      height: sizes.PROFILE_RING_SIZE,
-                      borderRadius: sizes.PROFILE_RING_SIZE / 2,
-                    }]} />}
-                    <View style={[
-                      styles.iconCircle,
-                      isFocused && styles.iconCircleActive,
-                      {
-                        width: sizes.ICON_SIZE,
-                        height: sizes.ICON_SIZE,
-                        borderRadius: sizes.ICON_SIZE / 2,
-                      }
-                    ]}>
-                      {icon && icon({ 
-                        size: Math.round(sizes.ICON_SIZE * 0.46), 
-                        color: isFocused ? '#1A1A1A' : theme.colors.textSecondary
-                      })}
-                    </View>
-                  </View>
-                ) : (
-                  // Regular icon tabs
-                  <View style={[
-                    styles.iconCircle,
-                    isFocused && styles.iconCircleActive,
-                    {
-                      width: sizes.ICON_SIZE,
-                      height: sizes.ICON_SIZE,
-                      borderRadius: sizes.ICON_SIZE / 2,
-                    }
-                  ]}>
-                    {icon && icon({ 
-                      size: Math.round(sizes.ICON_SIZE * 0.46), 
-                      color: isFocused ? '#1A1A1A' : theme.colors.textSecondary
-                    })}
-                  </View>
-                )}
+                {/* All tabs use the same style now - no special profile ring */}
+                <View style={[
+                  styles.iconCircle,
+                  isFocused && styles.iconCircleActive,
+                  {
+                    width: sizes.ICON_SIZE,
+                    height: sizes.ICON_SIZE,
+                    borderRadius: sizes.ICON_SIZE / 2,
+                  }
+                ]}>
+                  {icon && icon({ 
+                    size: Math.round(sizes.ICON_SIZE * 0.46), 
+                    color: isFocused ? '#1A1A1A' : theme.colors.textSecondary
+                  })}
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -150,18 +124,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.98)',
     borderColor: 'rgba(255, 255, 255, 0.2)',
     transform: [{ scale: 1.08 }],
-  },
-  
-  // Profile with red ring - same size as other icons
-  profileContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileRing: {
-    position: 'absolute',
-    borderWidth: 2.5,
-    borderColor: '#FF3B30',
-    backgroundColor: 'transparent',
   },
 });

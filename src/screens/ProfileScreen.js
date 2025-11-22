@@ -4,7 +4,7 @@
  */
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, Switch, RefreshControl, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { theme } from '../theme';
@@ -12,10 +12,10 @@ import GlassCard from '../components/GlassCard';
 import GlassButton from '../components/GlassButton';
 import ConfirmDialog from '../components/ConfirmDialog';
 import LoadingSpinner from '../components/LoadingSpinner';
-import apiService from '../../services/api';
+import { supabase } from '../config/supabase';
 import toast from '../utils/toast';
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const { user, profile, logout, biometricEnabled, biometricAvailable, enableBiometric, disableBiometric, updateProfile } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
@@ -170,12 +170,12 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView 
         contentContainerStyle={[
           styles.scrollContent,
           { 
-            paddingTop: insets.top + 20,
+            paddingTop: 20,
             paddingBottom: insets.bottom + 140 
           }
         ]}
@@ -198,7 +198,9 @@ export default function ProfileScreen() {
           <Text style={styles.userName}>{userData.name || 'User'}</Text>
           <View style={styles.userTypeContainer}>
             <Text style={styles.userType}>{capitalizeFirst(userData.userType)}</Text>
-            {userData.verified && <Text style={styles.verifiedBadge}>✓ Verified</Text>}
+            {userData.verified && (
+              <Text style={styles.verifiedBadge}>✓ Verified</Text>
+            )}
           </View>
         </View>
 
@@ -231,14 +233,14 @@ export default function ProfileScreen() {
             <MaterialIcons name="email" size={18} color={theme.colors.textSecondary} />
             <Text style={styles.infoLabel}>Email</Text>
           </View>
-          <Text style={styles.infoValue}>{userData.email}</Text>
+          <Text style={styles.infoValue}>{userData.email || 'Not provided'}</Text>
         </View>
         <View style={styles.infoRow}>
           <View style={styles.infoLabelContainer}>
             <MaterialIcons name="phone" size={18} color={theme.colors.textSecondary} />
             <Text style={styles.infoLabel}>Phone</Text>
           </View>
-          <Text style={styles.infoValue}>{userData.phone}</Text>
+          <Text style={styles.infoValue}>{userData.phone || 'Not provided'}</Text>
         </View>
         <View style={styles.infoRow}>
           <View style={styles.infoLabelContainer}>
@@ -380,7 +382,6 @@ export default function ProfileScreen() {
           title="Edit Profile"
           onPress={handleEditProfile}
           variant="primary"
-          icon="edit"
           style={styles.actionButton}
           intensity={80}
         />
@@ -388,7 +389,6 @@ export default function ProfileScreen() {
           title="Settings"
           onPress={handleSettings}
           variant="secondary"
-          icon="settings"
           style={styles.actionButton}
           intensity={80}
         />
@@ -396,7 +396,6 @@ export default function ProfileScreen() {
           title="Logout"
           onPress={handleLogout}
           variant="light"
-          icon="logout"
           style={styles.actionButton}
           intensity={75}
         />
@@ -413,7 +412,7 @@ export default function ProfileScreen() {
         cancelText="Cancel"
         type="danger"
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

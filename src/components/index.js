@@ -7,6 +7,8 @@ export { default as Button } from './Button';
 export { default as Card } from './Card';
 export { default as Input } from './Input';
 export { default as ErrorBoundary } from './ErrorBoundary';
+export { default as LoadingSpinner } from './LoadingSpinner';
+export { default as GoogleSignInButton } from './GoogleSignInButton';
 
 // Gradient components
 export { default as GradientButton } from './GradientButton';
@@ -37,3 +39,14 @@ export { default as PhotoPreview } from './PhotoPreview';
 export { default as LocationPicker } from './LocationPicker';
 export { default as LandmarkLocationInput } from './LandmarkLocationInput';
 export { default as LocationSelector } from './LocationSelector';
+
+// Verification components
+export { default as VerificationBadge } from './VerificationBadge';
+export { default as DocumentPreview } from './DocumentPreview';
+
+// Location service components
+export { default as ServiceAreaManager } from './ServiceAreaManager';
+export { default as NearbyCasesList } from './NearbyCasesList';
+
+// Status update components
+export { default as StatusUpdateTimeline } from './StatusUpdateTimeline';

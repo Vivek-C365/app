@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
@@ -15,7 +15,9 @@ import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PhotoManager from '../components/PhotoManager';
 import LocationPicker from '../components/LocationPicker';
-import apiService from '../../services/api';
+import apiService from '../services/apiService';
+import caseService from '../services/caseService';
+import { supabase } from '../config/supabase';
 import config from '../../config';
 import toast from '../utils/toast';
 import { useAuth } from '../contexts/AuthContext';
@@ -63,7 +65,10 @@ export default function ReportScreen() {
       if (!contactEmail && user.email) {
         setContactEmail(user.email);
       }
-      setContactFieldsDisabled(true); // Disable fields for logged-in users
+      // Only disable fields if they have values
+      const hasName = contactName || user.name;
+      const hasPhone = contactPhone || (user.phone && user.phone.replace(/^GOOGLE_/, '').length === 10);
+      setContactFieldsDisabled(hasName && hasPhone);
     }
   }, [isAuthenticated, user]);
 
@@ -207,31 +212,50 @@ export default function ReportScreen() {
     setLoading(true);
 
     try {
-      // Prepare case data
+      // Get current user ID
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      if (!currentUser) {
+        throw new Error('You must be logged in to submit a report');
+      }
+
+      // Prepare case data matching database schema
       const caseData = {
-        animalType,
-        condition,
-        description,
-        location: {
-          address: location,
-          coordinates: locationCoords ? [locationCoords.longitude, locationCoords.latitude] : undefined,
-          landmarks: landmark,
-          description: location,
-          isApproximate: !locationCoords,
-        },
-        photos,
-        contactInfo: {
+        reporter_id: currentUser.id,
+        animal_type: animalType,
+        condition: condition,
+        description: description,
+        location_point: locationCoords 
+          ? `POINT(${locationCoords.longitude} ${locationCoords.latitude})`
+          : null,
+        location_address: location,
+        location_landmarks: landmark || 'Not specified',
+        location_description: location,
+        location_is_approximate: !locationCoords,
+        contact_info: {
           phone: contactPhone,
           email: contactEmail || undefined,
           name: contactName,
         },
-        requiresReporterApproval: wantsFollowUp === true, // Add follow-up preference
+        photos: photos,
+        status: 'open',
+        urgency_level: 'medium',
       };
 
       // Submit to API
-      const response = await apiService.createCase(caseData);
+      const response = await caseService.createCase(caseData);
 
       if (response.success) {
+        // Trigger case workflow to find and notify nearby helpers
+        const workflowResponse = await caseService.triggerCaseWorkflow(response.case.id);
+        
+        if (workflowResponse.success) {
+          console.log('Case workflow triggered:', workflowResponse.result);
+        } else {
+          console.warn('Failed to trigger workflow:', workflowResponse.error);
+          // Don't fail the submission if workflow fails
+        }
+        
         // Clear draft after successful submission
         await clearDraft();
         
@@ -247,6 +271,7 @@ export default function ReportScreen() {
         setContactEmail('');
         setPhotos([]);
         setValidationErrors({});
+        setWantsFollowUp(null);
         
         toast.success('Report Submitted!', 'Nearby volunteers will be notified immediately');
         setShowSuccessModal(true);
@@ -292,12 +317,12 @@ export default function ReportScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView 
         contentContainerStyle={[
           styles.scrollContent,
           { 
-            paddingTop: insets.top + 20,
+            paddingTop: 20,
             paddingBottom: insets.bottom + 140,
             paddingHorizontal: isSmallScreen ? theme.spacing.md : theme.spacing.lg,
           }
@@ -457,7 +482,7 @@ export default function ReportScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Your Contact</Text>
-            {isAuthenticated && (
+            {isAuthenticated && contactFieldsDisabled && (
               <View style={styles.autoFillBadge}>
                 <MaterialIcons name="check-circle" size={16} color={theme.colors.success} />
                 <Text style={styles.autoFillText}>Auto-filled from profile</Text>
@@ -472,7 +497,7 @@ export default function ReportScreen() {
             onChangeText={setContactName}
             error={validationErrors.contactName}
             editable={!contactFieldsDisabled}
-            style={contactFieldsDisabled && styles.disabledInput}
+            style={contactFieldsDisabled ? styles.disabledInput : null}
           />
 
           <GlassInput
@@ -483,7 +508,7 @@ export default function ReportScreen() {
             keyboardType="phone-pad"
             error={validationErrors.contactPhone}
             editable={!contactFieldsDisabled}
-            style={contactFieldsDisabled && styles.disabledInput}
+            style={contactFieldsDisabled ? styles.disabledInput : null}
           />
 
           <GlassInput
@@ -495,7 +520,7 @@ export default function ReportScreen() {
             autoCapitalize="none"
             error={validationErrors.contactEmail}
             editable={!contactFieldsDisabled}
-            style={contactFieldsDisabled && styles.disabledInput}
+            style={contactFieldsDisabled ? styles.disabledInput : null}
           />
           
           {isAuthenticated && (
@@ -507,7 +532,7 @@ export default function ReportScreen() {
 
         {/* Follow-up Preference */}
         <View style={styles.section}>
-          <View style={[styles.followUpContainer, validationErrors.wantsFollowUp && styles.followUpContainerError]}>
+          <View style={[styles.followUpContainer, validationErrors.wantsFollowUp ? styles.followUpContainerError : null]}>
             <View style={styles.followUpInfo}>
               <Text style={styles.followUpTitle}>Do you want to follow up on this case? *</Text>
               <Text style={styles.followUpDescription}>
@@ -628,7 +653,7 @@ export default function ReportScreen() {
           />
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 

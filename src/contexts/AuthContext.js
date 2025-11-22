@@ -82,9 +82,15 @@ export const AuthProvider = ({ children }) => {
         // Load user profile
         const profile = await authService.getUserProfile(session.user.id);
         setProfile(profile);
+      } else {
+        // No session found - user is not logged in (this is normal)
+        console.log('Auth state changed: INITIAL_SESSION - No active session');
       }
     } catch (error) {
-      console.error('Error initializing auth:', error);
+      // Only log unexpected errors
+      if (error.message !== 'Auth session missing!') {
+        console.error('Error initializing auth:', error);
+      }
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,6 @@
 /**
- * @fileoverview Forgot Password Screen
- * Password reset flow
+ * @fileoverview Magic Link Login Screen
+ * Passwordless authentication using email magic link
  */
 import { useState } from 'react';
 import {
@@ -21,8 +21,8 @@ import GradientButton from '../components/GradientButton';
 import GlassBackground from '../components/GlassBackground';
 import { theme } from '../theme';
 
-export default function ForgotPasswordScreen({ navigation }) {
-  const { requestPasswordReset } = useAuth();
+export default function MagicLinkScreen({ navigation }) {
+  const { loginWithMagicLink } = useAuth();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -40,19 +40,19 @@ export default function ForgotPasswordScreen({ navigation }) {
     return true;
   };
 
-  const handleResetPassword = async () => {
+  const handleSendMagicLink = async () => {
     if (!validateEmail()) {
       return;
     }
 
     setLoading(true);
     try {
-      const result = await requestPasswordReset(email);
+      const result = await loginWithMagicLink(email);
       
       if (result.success) {
         setEmailSent(true);
       } else {
-        Alert.alert('Error', result.message || 'Failed to send reset email');
+        Alert.alert('Error', result.message || 'Failed to send magic link');
       }
     } catch (error) {
       Alert.alert('Error', error.message || 'An error occurred');
@@ -71,10 +71,10 @@ export default function ForgotPasswordScreen({ navigation }) {
             </View>
             <Text style={styles.successTitle}>Check Your Email</Text>
             <Text style={styles.successMessage}>
-              We've sent password reset instructions to {email}
+              We've sent a magic link to {email}
             </Text>
             <Text style={styles.successSubtext}>
-              Please check your inbox and follow the link to reset your password.
+              Click the link in your email to sign in instantly. The link will expire in 1 hour.
             </Text>
             <GradientButton
               title="Back to Login"
@@ -83,7 +83,7 @@ export default function ForgotPasswordScreen({ navigation }) {
             />
             <TouchableOpacity
               style={styles.resendButton}
-              onPress={handleResetPassword}
+              onPress={handleSendMagicLink}
             >
               <Text style={styles.resendText}>Didn't receive email? Resend</Text>
             </TouchableOpacity>
@@ -114,11 +114,11 @@ export default function ForgotPasswordScreen({ navigation }) {
           </View>
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              <Ionicons name="lock-closed" size={60} color={theme.colors.primary} />
+              <Ionicons name="mail" size={60} color={theme.colors.primary} />
             </View>
-            <Text style={styles.title}>Forgot Password?</Text>
+            <Text style={styles.title}>Magic Link Login</Text>
             <Text style={styles.subtitle}>
-              Enter your email address and we'll send you instructions to reset your password
+              Sign in without a password. We'll send you a secure link to your email.
             </Text>
           </View>
 
@@ -140,11 +140,18 @@ export default function ForgotPasswordScreen({ navigation }) {
             />
 
             <GradientButton
-              title="Send Reset Link"
-              onPress={handleResetPassword}
+              title="Send Magic Link"
+              onPress={handleSendMagicLink}
               loading={loading}
               style={styles.submitButton}
             />
+
+            <View style={styles.infoBox}>
+              <Ionicons name="information-circle" size={20} color={theme.colors.primary} />
+              <Text style={styles.infoText}>
+                Magic links are valid for 1 hour and can only be used once
+              </Text>
+            </View>
           </GlassCard>
 
           {/* Back to Login */}
@@ -214,6 +221,20 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    gap: theme.spacing.sm,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
   },
   footer: {
     alignItems: 'center',

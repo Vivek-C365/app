@@ -2,17 +2,24 @@
 
 ## Mobile App Development Tasks
 
-- [x] 1. Set up mobile app foundation and backend infrastructure
+- [x] 1. Set up mobile app foundation and Supabase backend infrastructure
+
+
+
+
+
 
 
 
 
   - Initialize React Native project with Expo SDK 54
-  - Set up Node.js/Express backend with JavaScript and JSDoc documentation
-  - Configure MongoDB database with geospatial indexing
-  - Set up Redis for caching and session management
-  - Configure development environment for mobile and backend
+  - Create Supabase project and configure database
+  - Enable PostGIS extension for geospatial queries
+  - Set up Supabase Auth for user authentication
+  - Configure Supabase Storage buckets (case-photos, verification-docs, status-photos)
+  - Install Supabase JS client (@supabase/supabase-js) in mobile app
   - Install required Expo packages (Camera, Location, Notifications, AsyncStorage)
+  - Configure development environment with Supabase CLI
   - _Requirements: All requirements need foundational setup_
 
 - [x] 2. Build mobile app navigation and basic UI structure
@@ -27,21 +34,29 @@
   - Create reusable UI components (buttons, cards, inputs)
   - Set up app theme and styling system
   - _Requirements: 6.1 (mobile interface)_
+-
 
-- [x] 3. Implement core data models and database schemas
-
-
-
+- [x] 3. Implement PostgreSQL database schema with PostGIS
 
 
 
 
-  - Create User model with verification fields and notification preferences
-  - Implement Case model with location, photos, and status tracking
-  - Create ServiceArea model for helper coverage zones
-  - Implement Message model for case communications
-  - Create StatusUpdate model with mandatory photo requirements
-  - Set up MongoDB indexes for geospatial queries and performance
+
+
+
+
+
+
+
+  - Create profiles table extending auth.users with verification fields and notification preferences
+  - Implement cases table with PostGIS geography type for location and photo arrays
+  - Create service_areas table with PostGIS for helper coverage zones
+  - Implement messages table for case communications
+  - Create status_updates table with mandatory photo requirements
+  - Create case_assignments junction table for helper assignments
+  - Create verification_documents table for document uploads
+  - Set up PostGIS spatial indexes for geospatial queries
+  - Create database triggers for automatic timestamp updates and profile creation
   - _Requirements: 1.2, 2.1, 3.3, 5.1_
 
 - [x] 4. Build mobile authentication screens and flows
@@ -56,15 +71,21 @@
   - Build onboarding screens for first-time users
   - _Requirements: 3.1, 3.2_
 
-- [x] 5. Implement backend authentication and user management
+- [x] 5. Implement Supabase Auth integration in mobile app
 
 
 
-  - Create user registration API with role-based access
-  - Implement JWT-based authentication with secure token handling
-  - Build user profile management endpoints
-  - Add password reset and account security features
-  - Create session management with Redis
+
+
+
+
+
+  - Integrate Supabase Auth client for signup with user metadata (name, phone, user_type)
+  - Implement login with email/password using Supabase Auth
+  - Add magic link authentication for passwordless login
+  - Implement session management with automatic token refresh
+  - Build profile management using Supabase client queries
+  - Add password reset flow using Supabase Auth
   - _Requirements: 3.1, 3.2, 4.1_
 
 - [x] 6. Build mobile camera integration for photo capture
@@ -151,7 +172,12 @@
   - Add map view showing case location
   - _Requirements: 5.3, 7.1, 7.2_
 
-- [ ] 11. Build User Profile and Settings screens
+- [x] 11. Build User Profile and Settings screens
+
+
+
+
+
 
 
 
@@ -178,31 +204,33 @@
   - Create verification badge display
   - _Requirements: 3.2, 3.3_
 
-- [ ] 13. Build backend case management system
+- [ ] 13. Implement case management with Supabase and Edge Functions
 
 
 
 
 
-  - Create case creation API with photo upload
-  - Implement case status management with workflow tracking
-  - Build case assignment system for volunteers and NGOs
-  - Create case search and filtering endpoints
-  - Implement case timeline and history tracking
+  - Create case creation flow using Supabase client insert with photo upload to Storage
+  - Build Edge Function for case workflow automation (case-workflow)
+  - Implement case status management with Supabase client updates
+  - Build case assignment system using case_assignments table
+  - Create case search and filtering using Supabase queries with filters
+  - Implement case timeline using status_updates table with joins
   - Add case archival system for resolved cases
   - _Requirements: 1.1, 1.2, 1.3, 5.1, 5.2, 5.3_
 
-- [ ] 14. Implement backend location services and geospatial matching
+- [ ] 14. Implement PostGIS location services and geospatial matching
 
 
 
 
 
-  - Build geospatial matching to find nearby helpers
-  - Create service area management for volunteers and NGOs
-  - Implement distance calculation algorithms
-  - Add reverse geocoding integration
-  - Create location-based notification targeting
+  - Create find_nearby_helpers() PostgreSQL function using PostGIS ST_DWithin
+  - Build calculate_distance() function using PostGIS ST_Distance
+  - Create is_within_service_area() function for service area checks
+  - Implement service area management using service_areas table with PostGIS
+  - Add Expo Location integration for reverse geocoding (no Google Maps API needed)
+  - Create Edge Function for complex location matching with business logic
   - _Requirements: 1.4, 2.1, 2.2_
 
 - [ ] 15. Build mobile status update screen with photo requirements
@@ -218,17 +246,19 @@
   - Create reminder notification handling
   - _Requirements: 5.2, 5.4_
 
-- [ ] 16. Implement backend status update and reminder system
+- [ ] 16. Implement status update system with pg_cron and Edge Functions
 
 
 
 
 
-  - Create status update API with photo validation
-  - Build 24-hour update reminder system with automated scheduling
-  - Implement escalation workflow for missed updates
-  - Add case reassignment for non-responsive helpers
-  - Create reminder notification service
+  - Create status update flow using Supabase client with photo upload to Storage
+  - Build database trigger to update case last_status_update and next_reminder_due
+  - Implement pg_cron scheduled job to check for overdue status updates every hour
+  - Create check_and_send_status_reminders() PostgreSQL function
+  - Build Edge Function for sending reminder notifications (send-reminder)
+  - Implement escalation workflow for missed updates using pg_cron
+  - Add case reassignment logic for non-responsive helpers
   - _Requirements: 5.2, 5.4_
 
 - [ ] 17. Implement push notifications in mobile app
@@ -244,49 +274,65 @@
   - Add notification sound and vibration
   - _Requirements: 2.2, 6.5_
 
-- [ ] 18. Build backend multi-channel notification system
+- [ ] 18. Build multi-channel notification system with Edge Functions
 
 
 
 
 
-  - Integrate Brevo for email notifications
-  - Implement WhatsApp Business API for messaging
+  - Create Edge Function for notification orchestration (send-notifications)
+  - Integrate Brevo API for email notifications in Edge Function
+  - Implement WhatsApp Business API for messaging in Edge Function
   - Set up Firebase Cloud Messaging for push notifications
-  - Create notification preference management
-  - Build emergency alert system for case notifications
-  - Implement reminder notifications with escalation
+  - Build notification preference management using profiles table
+  - Create emergency alert Edge Function for case notifications
+  - Implement reminder notifications with escalation via Edge Functions
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 5.2_
 
-- [ ] 19. Build real-time messaging in mobile app
+- [ ] 19. Build real-time messaging with Supabase Realtime
 
 
 
 
 
-  - Integrate Socket.io client for real-time updates
+  - Integrate Supabase Realtime client for live message subscriptions
   - Create chat interface with message bubbles
-  - Implement typing indicators
-  - Add message read receipts
-  - Build image sharing in chat
+  - Implement real-time message updates using postgres_changes subscription
+  - Add message read receipts using read_by array updates
+  - Build image sharing in chat with Supabase Storage
   - Create notification badges for unread messages
+  - Implement presence tracking for online users
   - _Requirements: 7.1, 7.2, 7.3_
 
-- [ ] 20. Implement backend real-time messaging system
+- [ ] 20. Set up Supabase Realtime subscriptions for live updates
+
+
+
+
+  - Subscribe to new cases using postgres_changes for INSERT events
+  - Implement case status update subscriptions for real-time UI updates
+  - Create message subscriptions filtered by case_id
+  - Build presence channel for online helper tracking
+  - Add subscription cleanup and error handling
+  - Implement reconnection logic for dropped connections
+  - _Requirements: 5.2, 7.1, 7.2_
+
+- [ ] 21. Implement Row Level Security policies for data access control
 
 
 
 
 
-  - Set up Socket.io server for real-time communication
-  - Create case-specific chat rooms for participants
-  - Build message delivery and read receipt tracking
-  - Implement priority message highlighting
-  - Add multi-language support for Hindi and English
-  - Create message archival for resolved cases
+  - Create RLS policies for profiles table (public read, own update)
+  - Implement RLS policies for cases table (anyone create, participants update)
+  - Build RLS policies for messages table (only case participants can view/create)
+  - Create RLS policies for status_updates table (only assigned helpers can create)
+  - Implement RLS policies for verification_documents table (own view, admin update)
+  - Add RLS policies for case_assignments and service_areas tables
+  - Test RLS policies with different user roles
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 21. Build AI Emergency Assistance screen in mobile app
+- [ ] 22. Build AI Emergency Assistance screen in mobile app
 
 
 
@@ -299,116 +345,123 @@
   - Build photo analysis result display
   - _Requirements: 2.1, 2.2 (fallback scenarios)_
 
-- [ ] 22. Implement backend Google Gemini AI emergency system
+- [ ] 23. Implement Google Gemini AI emergency system with Edge Functions
 
 
 
 
 
-  - Set up Google Gemini AI API integration
+  - Create Edge Function for AI emergency assistance (ai-emergency)
+  - Set up Google Gemini AI API integration in Edge Function
   - Implement automatic activation triggers for no-response scenarios
-  - Create AI-powered facility recommendation engine
-  - Build AI guidance chat backend
-  - Implement photo analysis for injury assessment
-  - Create emergency contact integration
+  - Build AI-powered facility recommendation engine using Gemini
+  - Create Edge Function for AI guidance chat (ai-chat)
+  - Implement photo analysis for injury assessment using Gemini Vision
+  - Create emergency contact integration in Edge Function
   - _Requirements: 2.1, 2.2 (fallback scenarios)_
 
-- [ ] 23. Implement offline mode and data synchronization
+- [ ] 24. Implement offline mode and data synchronization with AsyncStorage
 
 
 
 
-  - Build offline data storage with AsyncStorage
-  - Create draft report saving for offline use
-  - Implement data sync when connection returns
-  - Add offline indicator in UI
-  - Cache case data for offline viewing
-  - Build queue system for pending uploads
+  - Build offline data storage with AsyncStorage for cases and profiles
+  - Create draft report saving for offline use with local queue
+  - Implement data sync when connection returns using mutation queue
+  - Add offline indicator in UI based on network status
+  - Cache case data for offline viewing using AsyncStorage
+  - Build queue system for pending Supabase operations
+  - Implement optimistic UI updates for better UX
   - _Requirements: 6.4 (offline capability)_
 
-- [ ] 24. Add mobile-specific features and enhancements
+- [ ] 25. Add mobile-specific features and enhancements
 
 
 
 
   - Implement voice input for hands-free reporting
-  - Add biometric authentication (fingerprint/face ID)
+  - Add biometric authentication with Supabase Auth
   - Create background location tracking for volunteers
   - Build local notifications for reminders
   - Add haptic feedback for important actions
   - Implement dark mode support
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
-- [ ] 25. Build backend admin APIs and verification system
+- [ ] 26. Build admin verification system with Edge Functions and RLS
 
 
 
 
 
-  - Create admin APIs for user verification management
-  - Build case monitoring and analytics endpoints
-  - Implement content moderation APIs
-  - Create platform usage analytics
-  - Add suspicious activity detection
-  - Build admin notification system
+  - Create Edge Function for user verification workflow (verify-user)
+  - Build admin dashboard queries using Supabase client with RLS
+  - Implement case monitoring and analytics using PostgreSQL views
+  - Create Edge Function for content moderation (moderate-content)
+  - Build platform usage analytics using PostgreSQL aggregate queries
+  - Add suspicious activity detection using database triggers
+  - Implement admin notification system via Edge Functions
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 26. Integrate external services and APIs
+- [ ] 27. Integrate external services with Supabase Storage and Edge Functions
 
 
 
 
-  - Set up Cloudinary for image storage and optimization
-  - Configure Cloudinary upload presets and transformations
-  - Set up Brevo email service integration
-  - Integrate WhatsApp Business API for messaging
-  - Configure Firebase for push notifications
-  - Set up Google Gemini AI service
-  - Add error handling and fallback mechanisms
+  - Configure Supabase Storage buckets with public/private access policies
+  - Set up Cloudinary for advanced image processing and transformations
+  - Integrate Brevo email service in Edge Functions
+  - Integrate WhatsApp Business API in Edge Functions
+  - Configure Firebase for push notifications in mobile app
+  - Set up Google Gemini AI service in Edge Functions
+  - Add error handling and fallback mechanisms in Edge Functions
   - _Requirements: 1.4, 2.1, 2.2, 6.3, 7.4_
 
-- [ ] 27. Optimize mobile app performance
+- [ ] 28. Optimize mobile app performance with Supabase
 
 
 
 
-  - Implement image compression before upload
-  - Add lazy loading for case lists
-  - Optimize API calls with caching
-  - Reduce app bundle size
-  - Implement code splitting
+  - Implement image compression before upload to Supabase Storage
+  - Add lazy loading for case lists with Supabase pagination
+  - Optimize Supabase queries with proper indexes and filters
+  - Reduce app bundle size with code splitting
+  - Implement Supabase query caching with React Query
   - Add error boundaries and crash reporting
   - Test on low-end Android devices
   - _Requirements: All requirements need performance optimization_
 
-- [ ] 28. Implement comprehensive testing for mobile and backend
+- [ ] 29. Implement comprehensive testing for mobile and Supabase backend
 
 
 
 
-  - Write unit tests for React Native components
-  - Create integration tests for API endpoints
-  - Implement end-to-end tests for critical user flows
-  - Add mobile testing on iOS and Android simulators
-  - Create performance tests for geospatial queries
-  - Test camera, GPS, and notification features
-  - Test offline mode and data synchronization
+  - Write unit tests for React Native components with Jest
+  - Create integration tests for Supabase client operations
+  - Test Edge Functions using Deno test framework
+  - Implement end-to-end tests using Detox for React Native
+  - Test PostGIS geospatial queries using pgTAP
+  - Test Row Level Security policies with different user roles
+  - Test Supabase Realtime subscriptions and live updates
+  - Test camera, GPS, and notification features on simulators
+  - Test offline mode with AsyncStorage and data synchronization
   - _Requirements: All requirements need testing coverage_
 
-- [ ] 29. Set up backend production deployment and monitoring
+- [ ] 30. Set up Supabase production deployment and monitoring
 
 
 
 
-  - Configure production environment with security hardening
-  - Set up database backup and recovery procedures
-  - Implement application monitoring and error tracking
-  - Configure load balancing and scaling capabilities
-  - Set up SSL certificates and security headers
-  - Create deployment automation and CI/CD pipeline
+  - Configure Supabase production project with appropriate tier
+  - Set up database backup and point-in-time recovery
+  - Implement monitoring using Supabase Dashboard and logs
+  - Configure Edge Function deployment and versioning
+  - Set up custom domain and SSL certificates
+  - Create CI/CD pipeline for Edge Functions deployment
+  - Configure database connection pooling and performance optimization
+  - Set up alerts for database performance and Edge Function errors
   - _Requirements: Platform reliability for all features_
 
-- [ ] 30. Prepare mobile app for store deployment
+- [ ] 31. Prepare mobile app for store deployment
 
 
 

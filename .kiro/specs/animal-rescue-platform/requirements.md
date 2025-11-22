@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The Animal Rescue Platform is a web application designed to connect people in India who discover injured or distressed animals with local volunteers and NGOs who can provide immediate assistance. The platform enables quick reporting of animal emergencies, location-based matching with nearby helpers, and real-time communication to facilitate rapid response for animal welfare.
+The Animal Rescue Platform is a mobile-first application designed to connect people in India who discover injured or distressed animals with local volunteers and NGOs who can provide immediate assistance. The platform enables quick reporting of animal emergencies, location-based matching with nearby helpers, and real-time communication to facilitate rapid response for animal welfare. The system uses Supabase as the backend infrastructure, providing PostgreSQL database, authentication, real-time subscriptions, storage, and edge functions.
 
 ## Requirements
 

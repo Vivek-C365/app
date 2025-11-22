@@ -7,13 +7,15 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "server:dev": "cd server && npm run dev",
-    "server:start": "cd server && npm start",
-    "install:all": "npm install && cd server && npm install",
-    "docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
-    "docker:down": "docker-compose -f docker-compose.dev.yml down",
-    "docker:logs": "docker-compose -f docker-compose.dev.yml logs -f",
     "verify": "node verify-setup.js",
+    "supabase:start": "npx supabase start",
+    "supabase:stop": "npx supabase stop",
+    "supabase:status": "npx supabase status",
+    "supabase:db:reset": "npx supabase db reset",
+    "supabase:db:push": "npx supabase db push",
+    "supabase:functions:deploy": "npx supabase functions deploy",
+    "supabase:functions:serve": "npx supabase functions serve",
+    "supabase:migration:new": "npx supabase migration new",
     "build:android": "eas build --platform android --profile production",
     "build:android:local": "eas build --platform android --profile production --local",
     "build:status": "eas build:list"
@@ -24,12 +26,15 @@
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.13",
     "@react-navigation/stack": "^7.6.4",
+    "@supabase/supabase-js": "^2.39.0",
     "axios": "^1.7.9",
     "expo": "~54.0.0",
     "expo-auth-session": "~7.0.8",
     "expo-blur": "^15.0.7",
     "expo-camera": "~17.0.9",
     "expo-crypto": "~15.0.7",
+    "expo-dev-client": "~6.0.18",
+    "expo-document-picker": "^14.0.7",
     "expo-file-system": "^19.0.17",
     "expo-image-manipulator": "^14.0.7",
     "expo-image-picker": "~17.0.8",
@@ -47,11 +52,13 @@
     "react-native-safe-area-context": "^5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-toast-message": "^2.3.3",
-    "socket.io-client": "^4.8.1"
+    "sentry-expo": "~7.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.0",
-    "babel-preset-expo": "^54.0.7"
+    "@types/react": "~19.1.10",
+    "babel-preset-expo": "^54.0.7",
+    "typescript": "~5.9.2"
   },
   "private": true
 }

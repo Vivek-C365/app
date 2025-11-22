@@ -7,6 +7,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import MagicLinkScreen from '../screens/MagicLinkScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 
 const Stack = createStackNavigator();
@@ -23,6 +24,7 @@ export default function AuthNavigator() {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="MagicLink" component={MagicLinkScreen} />
     </Stack.Navigator>
   );
 }

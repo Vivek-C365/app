@@ -131,12 +131,18 @@ export default function LoginScreen({ navigation }) {
               error={errors.password}
             />
 
-            <TouchableOpacity
-              style={styles.forgotPassword}
-              onPress={() => navigation.navigate('ForgotPassword')}
-            >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </TouchableOpacity>
+            <View style={styles.linksContainer}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ForgotPassword')}
+              >
+                <Text style={styles.linkText}>Forgot Password?</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('MagicLink')}
+              >
+                <Text style={styles.linkText}>Use Magic Link</Text>
+              </TouchableOpacity>
+            </View>
 
             <GradientButton
               title="Sign In"
@@ -218,11 +224,12 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
+  linksContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: theme.spacing.md,
   },
-  forgotPasswordText: {
+  linkText: {
     color: theme.colors.primary,
     fontSize: theme.typography.fontSize.sm,
   },

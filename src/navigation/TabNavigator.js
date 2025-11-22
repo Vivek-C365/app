@@ -15,6 +15,10 @@ import AddStatusUpdateScreen from '../screens/AddStatusUpdateScreen';
 import SearchScreen from '../screens/SearchScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
+import ServiceAreasScreen from '../screens/ServiceAreasScreen';
+import VerificationScreen from '../screens/VerificationScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -24,7 +28,7 @@ function getTabBarVisibility(route) {
   const routeName = getFocusedRouteNameFromRoute(route) ?? 'CasesList';
   
   // Hide tab bar on these screens
-  const hideTabBarScreens = ['CaseDetails', 'AddStatusUpdate'];
+  const hideTabBarScreens = ['CaseDetails', 'AddStatusUpdate', 'EditProfile', 'ServiceAreas', 'Verification', 'Settings'];
   
   return !hideTabBarScreens.includes(routeName);
 }
@@ -41,6 +45,24 @@ function CasesStack() {
       <Stack.Screen name="CasesList" component={CasesScreen} />
       <Stack.Screen name="CaseDetails" component={CaseDetailsScreen} />
       <Stack.Screen name="AddStatusUpdate" component={AddStatusUpdateScreen} />
+    </Stack.Navigator>
+  );
+}
+
+// Profile Stack Navigator
+function ProfileStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        cardStyle: { backgroundColor: 'transparent' },
+      }}
+    >
+      <Stack.Screen name="ProfileMain" component={ProfileScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="ServiceAreas" component={ServiceAreasScreen} />
+      <Stack.Screen name="Verification" component={VerificationScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );
 }
@@ -68,11 +90,12 @@ export default function TabNavigator() {
       <Tab.Screen
         name="Cases"
         component={CasesStack}
-        options={{
+        options={({ route }) => ({
           title: 'Animalbook',
           headerShown: false,
           tabBarIcon: (props) => <TabIcon icon="home" {...props} />,
-        }}
+          tabBarStyle: { display: getTabBarVisibility(route) ? 'flex' : 'none' },
+        })}
       />
       <Tab.Screen
         name="Search"
@@ -103,12 +126,13 @@ export default function TabNavigator() {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
-        options={{
+        component={ProfileStack}
+        options={({ route }) => ({
           title: 'My Profile',
           headerShown: false,
           tabBarIcon: (props) => <TabIcon icon="user" {...props} />,
-        }}
+          tabBarStyle: { display: getTabBarVisibility(route) ? 'flex' : 'none' },
+        })}
       />
     </Tab.Navigator>
   );

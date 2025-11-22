@@ -54,7 +54,8 @@
         {
           "color": "#FF6B35"
         }
-      ]
+      ],
+      "sentry-expo"
     ],
     "extra": {
       "eas": {

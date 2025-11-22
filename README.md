@@ -1,22 +1,30 @@
 # Animal Rescue Platform
 
-A mobile-first application built with React Native (Expo) and Node.js/Express to connect people who discover injured or distressed animals with local volunteers and NGOs for immediate assistance.
+A mobile-first application built with React Native (Expo) and Supabase to connect people who discover injured or distressed animals with local volunteers and NGOs for immediate assistance.
 
 ## Project Structure
 
 ```
 animal-rescue-platform/
 ├── App.js                  # React Native mobile app entry point
-├── server/                 # Node.js/Express backend
-│   ├── config/            # Database and service configurations
-│   ├── models/            # MongoDB Mongoose models
-│   ├── routes/            # API route definitions
-│   ├── services/          # Business logic services
-│   ├── middleware/        # Express middleware
-│   ├── utils/             # Utility functions
-│   └── test/              # Test files
-├── docker-compose.dev.yml # Docker services for development
-└── package.json           # Root package.json with workspace scripts
+├── src/                    # Mobile app source code
+│   ├── config/            # Configuration files (Supabase client)
+│   ├── components/        # React components
+│   ├── screens/           # Screen components
+│   └── services/          # API service functions
+├── supabase/              # Supabase backend
+│   ├── functions/         # Edge Functions (Deno/TypeScript)
+│   ├── migrations/        # Database migrations
+│   └── config.toml        # Supabase configuration
+├── .kiro/                 # Kiro AI specs and documentation
+│   └── specs/
+│       └── animal-rescue-platform/
+│           ├── requirements.md    # Feature requirements
+│           ├── design.md          # System design
+│           ├── tasks.md           # Implementation tasks
+│           ├── supabase-setup.md  # Supabase setup guide
+│           └── cleanup-guide.md   # Migration cleanup guide
+└── package.json           # Root package.json with scripts
 ```
 
 ## Technology Stack
@@ -27,73 +35,76 @@ animal-rescue-platform/
 - Expo Camera, Location, Notifications, AsyncStorage
 - React Navigation for screen navigation
 - React Native Maps for location services
-- Socket.io client for real-time messaging
+- Supabase JS Client for backend integration
 
-### Backend
-- Node.js with Express.js
-- MongoDB with geospatial indexing
-- Redis for caching and session management
-- Socket.io for real-time communication
-- JWT authentication
-- Winston for logging
+### Backend (Supabase)
+- PostgreSQL 15+ with PostGIS extension for geospatial queries
+- Supabase Auth for authentication with JWT tokens
+- Supabase Realtime for live data subscriptions
+- Supabase Storage for file uploads
+- Edge Functions (Deno/TypeScript) for business logic
+- Row Level Security (RLS) for data access control
+- pg_cron for scheduled tasks
 
 ## Prerequisites
 
 - Node.js 18+ and npm
-- Docker and Docker Compose (for MongoDB and Redis)
+- Supabase CLI (`npm install -g supabase`)
 - Expo CLI (`npm install -g expo-cli`)
 - iOS Simulator (Mac) or Android Studio (for mobile testing)
+- Docker (optional, for local Supabase development)
 
 ## Quick Start
 
 ### 1. Install Dependencies
 
 ```bash
-# Install all dependencies (mobile app + backend)
-npm run install:all
+# Install mobile app dependencies
+npm install
 ```
 
-### 2. Start Database Services
+### 2. Set Up Supabase
 
+**Option A: Use Supabase Cloud (Recommended for getting started)**
+1. Create account at https://supabase.com
+2. Create new project
+3. Copy Project URL and anon key
+4. Skip to step 3
+
+**Option B: Local Supabase Development**
 ```bash
-# Start MongoDB and Redis with Docker
-npm run docker:dev
+# Start local Supabase (requires Docker)
+npm run supabase:start
 
-# Check if services are running
-npm run docker:logs
+# This will start PostgreSQL, Storage, Auth, and Edge Functions locally
 ```
 
-### 3. Configure Backend
+For detailed setup instructions, see `.kiro/specs/animal-rescue-platform/supabase-setup.md`
+
+### 3. Configure Environment Variables
 
 ```bash
 # Copy environment variables template
-cp server/.env.example server/.env
+cp .env.example .env
 
-# Edit server/.env with your configuration
-# Default values work for local development
+# Edit .env with your Supabase credentials
+# EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+# EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-### 4. Start Development Servers
+### 4. Apply Database Migrations
 
-**Option A: Start both mobile app and backend**
 ```bash
-# Terminal 1: Start backend server
-npm run server:dev
+# Apply database schema and RLS policies
+npm run supabase:db:push
+```
 
-# Terminal 2: Start Expo mobile app
+### 5. Start Mobile App
+
+```bash
+# Start Expo development server
 npm start
 ```
-
-**Option B: Start individually**
-```bash
-# Backend only (runs on port 3000)
-npm run server:dev
-
-# Mobile app only (Expo DevTools)
-npm start
-```
-
-### 5. Run Mobile App
 
 After starting Expo:
 - Press `i` for iOS Simulator
@@ -108,78 +119,120 @@ After starting Expo:
 - `npm run ios` - Run on iOS simulator
 - `npm run web` - Run in web browser
 
-### Backend
-- `npm run server:dev` - Start backend with nodemon (auto-reload)
-- `npm run server:start` - Start backend in production mode
-
-### Docker
-- `npm run docker:dev` - Start MongoDB and Redis containers
-- `npm run docker:down` - Stop and remove containers
-- `npm run docker:logs` - View container logs
-
-### Installation
-- `npm run install:all` - Install dependencies for both mobile and backend
+### Supabase
+- `npm run supabase:start` - Start local Supabase (requires Docker)
+- `npm run supabase:stop` - Stop local Supabase
+- `npm run supabase:status` - Check Supabase status
+- `npm run supabase:db:reset` - Reset local database
+- `npm run supabase:db:push` - Push migrations to remote
+- `npm run supabase:functions:deploy` - Deploy Edge Functions
+- `npm run supabase:functions:serve` - Serve Edge Functions locally
+- `npm run supabase:migration:new` - Create new migration
 
 ## Development Workflow
 
-1. **Database Setup**: Ensure MongoDB and Redis are running via Docker
-2. **Backend Development**: Make changes in `server/` directory
-3. **Mobile Development**: Make changes in root directory (App.js, etc.)
-4. **Testing**: Backend tests with Jest, mobile testing on simulators/devices
+1. **Supabase Setup**: Create project and apply migrations
+2. **Edge Functions**: Develop business logic in `supabase/functions/`
+3. **Mobile Development**: Build UI and integrate Supabase client
+4. **Database**: Create migrations for schema changes
+5. **Testing**: Test on simulators/devices with local or cloud Supabase
 
 ## Environment Variables
 
-### Backend (.env)
+### Mobile App (.env)
 ```
-PORT=3000
-NODE_ENV=development
-MONGODB_URI=mongodb://localhost:27017/animal-rescue
-REDIS_URL=redis://localhost:6379
-JWT_SECRET=your-secret-key
-CLIENT_URL=http://localhost:8081
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloud-name
+EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your-preset
+EXPO_PUBLIC_FCM_SERVER_KEY=your-fcm-key
 ```
 
-## API Endpoints
+### Edge Functions (Supabase Secrets)
+Set via `supabase secrets set KEY=value`:
+```
+BREVO_API_KEY=your-brevo-key
+WHATSAPP_API_KEY=your-whatsapp-key
+GEMINI_API_KEY=your-gemini-key
+CLOUDINARY_URL=your-cloudinary-url
+```
 
-Base URL: `http://localhost:3000/api`
+## Data Access
 
-- `GET /health` - Health check endpoint
-- `GET /api` - API information
+### Direct Database Access (via Supabase Client)
+```javascript
+import { supabase } from './src/config/supabase'
 
-Additional endpoints will be added as features are implemented.
+// Query cases
+const { data, error } = await supabase
+  .from('cases')
+  .select('*')
+  .eq('status', 'open')
 
-## Features (Planned)
+// Real-time subscription
+supabase
+  .channel('cases')
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cases' }, 
+    (payload) => console.log('New case:', payload)
+  )
+  .subscribe()
+```
 
-- ✅ Mobile app foundation with Expo
-- ✅ Backend server with Express
-- ✅ MongoDB with geospatial indexing
-- ✅ Redis caching
+### Edge Functions
+```javascript
+// Call Edge Function
+const { data, error } = await supabase.functions.invoke('case-workflow', {
+  body: { caseId: 'uuid' }
+})
+```
+
+## Features
+
+### Implemented
+- ✅ Mobile app foundation with Expo SDK 54
+- ✅ Supabase backend infrastructure
+- ✅ PostgreSQL with PostGIS for geospatial queries
+- ✅ Database schema with RLS policies
+- ✅ Supabase Auth configuration
+- ✅ Storage buckets setup
+- ✅ Edge Functions template
+
+### In Progress (See tasks.md)
 - ⏳ User authentication and verification
 - ⏳ Animal case reporting with photos
-- ⏳ Location-based matching
-- ⏳ Real-time messaging
-- ⏳ Multi-channel notifications
-- ⏳ AI emergency assistance
+- � Location-based matching with PostGIS
+- ⏳ Real-time messaging with Supabase Realtime
+- ⏳ Multi-channel notifications via Edge Functions
+- ⏳ AI emergency assistance with Gemini
+- ⏳ Status update reminders with pg_cron
+
+## Documentation
+
+- **Setup Guide**: `.kiro/specs/animal-rescue-platform/supabase-setup.md`
+- **Requirements**: `.kiro/specs/animal-rescue-platform/requirements.md`
+- **Design**: `.kiro/specs/animal-rescue-platform/design.md`
+- **Tasks**: `.kiro/specs/animal-rescue-platform/tasks.md`
+- **Cleanup Guide**: `.kiro/specs/animal-rescue-platform/cleanup-guide.md`
 
 ## Troubleshooting
 
-### MongoDB Connection Issues
+### Supabase Connection Issues
 ```bash
-# Check if MongoDB is running
-docker ps | grep mongodb
+# Check Supabase status
+npm run supabase:status
 
-# Restart MongoDB
-npm run docker:down
-npm run docker:dev
+# Restart local Supabase
+npm run supabase:stop
+npm run supabase:start
 ```
 
-### Redis Connection Issues
+### Database Migration Issues
 ```bash
-# Check if Redis is running
-docker ps | grep redis
+# Reset local database
+npm run supabase:db:reset
 
-# Test Redis connection
-docker exec -it animal-rescue-redis redis-cli ping
+# Check migration status
+supabase migration list
 ```
 
 ### Expo Issues
@@ -189,6 +242,15 @@ expo start -c
 
 # Reset Metro bundler
 rm -rf node_modules/.cache
+```
+
+### Edge Function Issues
+```bash
+# View function logs
+supabase functions logs case-workflow
+
+# Test function locally
+npm run supabase:functions:serve
 ```
 
 ## License

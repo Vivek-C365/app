@@ -3,7 +3,7 @@
  * User profile and settings
  */
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Switch, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, Switch, RefreshControl, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,14 +16,13 @@ import apiService from '../../services/api';
 import toast from '../utils/toast';
 
 export default function ProfileScreen() {
-  const { user, logout, biometricEnabled, biometricAvailable, enableBiometric, disableBiometric } = useAuth();
+  const { user, profile, logout, biometricEnabled, biometricAvailable, enableBiometric, disableBiometric, updateProfile } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [profileData, setProfileData] = useState(null);
   const [userStats, setUserStats] = useState({
     casesHelped: 0,
     activeCases: 0,
@@ -32,59 +31,27 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    fetchProfileData();
-  }, []);
-
-  const fetchProfileData = async () => {
-    try {
-      setLoading(true);
-      const response = await apiService.getProfile();
+    if (profile) {
+      // Load notification preferences from profile
+      const prefs = profile.notification_preferences || {};
+      setNotificationsEnabled(prefs.push !== false);
+      setWhatsappEnabled(prefs.whatsapp !== false);
+      setEmailEnabled(prefs.email !== false);
       
-      if (response.success && response.data) {
-        // The API returns { data: { user: {...} } }
-        const userData = response.data.user || response.data;
-        setProfileData(userData);
-        
-        // Fetch user statistics
-        await fetchUserStats(userData._id || userData.id);
-      }
-    } catch (error) {
-      console.log('Error fetching profile:', error);
-      // If user is not authenticated, use the user from context
-      if (user) {
-        setProfileData(user);
-        await fetchUserStats(user._id || user.id);
-      } else {
-        toast.warning('Not Logged In', 'Please log in to view your profile');
-      }
-    } finally {
-      setLoading(false);
+      // Fetch user statistics
+      fetchUserStats();
     }
-  };
+  }, [profile]);
 
-  const fetchUserStats = async (userId) => {
+  const fetchUserStats = async () => {
     try {
-      // Fetch cases where user is assigned
-      const casesResponse = await apiService.getCases({ 
-        myOnly: true,
-        limit: 100
+      // TODO: Implement stats fetching from Supabase
+      // For now, use placeholder data
+      setUserStats({
+        casesHelped: 0,
+        activeCases: 0,
+        rating: 0
       });
-      
-      if (casesResponse.success && casesResponse.data) {
-        const allCases = casesResponse.data.cases || [];
-        const activeCases = allCases.filter(c => 
-          c.status === 'assigned' || c.status === 'in_progress'
-        ).length;
-        const resolvedCases = allCases.filter(c => 
-          c.status === 'resolved' || c.status === 'closed'
-        ).length;
-        
-        setUserStats({
-          casesHelped: resolvedCases,
-          activeCases: activeCases,
-          rating: 4.8 // TODO: Implement rating system
-        });
-      }
     } catch (error) {
       console.log('Error fetching user stats:', error);
     }
@@ -92,18 +59,25 @@ export default function ProfileScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchProfileData();
+    await fetchUserStats();
     setRefreshing(false);
   };
 
-  // Use actual user data or fallback
-  const userData = profileData || user || {
-    name: 'User',
-    email: 'user@example.com',
-    phone: '+91 00000 00000',
-    userType: 'volunteer',
+  // Use profile data from context
+  const userData = profile ? {
+    name: profile.name || user?.user_metadata?.name || 'User',
+    email: profile.email || user?.email || 'user@example.com',
+    phone: profile.phone || user?.user_metadata?.phone || '+91 00000 00000',
+    userType: profile.user_type || user?.user_metadata?.user_type || 'volunteer',
+    verified: profile.verification?.status === 'approved',
+    createdAt: profile.created_at || user?.created_at || new Date().toISOString(),
+  } : {
+    name: user?.user_metadata?.name || 'User',
+    email: user?.email || 'user@example.com',
+    phone: user?.user_metadata?.phone || '+91 00000 00000',
+    userType: user?.user_metadata?.user_type || 'volunteer',
     verified: false,
-    createdAt: new Date().toISOString(),
+    createdAt: user?.created_at || new Date().toISOString(),
   };
 
   const formatJoinedDate = (dateString) => {
@@ -118,7 +92,19 @@ export default function ProfileScreen() {
   };
 
   const handleEditProfile = () => {
-    Alert.alert('Edit Profile', 'Profile editing will be implemented in a future task');
+    navigation.navigate('EditProfile');
+  };
+
+  const handleManageServiceAreas = () => {
+    navigation.navigate('ServiceAreas');
+  };
+
+  const handleVerification = () => {
+    navigation.navigate('Verification');
+  };
+
+  const handleSettings = () => {
+    navigation.navigate('Settings');
   };
 
   const handleLogout = () => {
@@ -141,6 +127,42 @@ export default function ProfileScreen() {
         Alert.alert('Error', 'Failed to disable biometric authentication');
       }
     }
+  };
+
+  const updateNotificationPreference = async (key, value) => {
+    try {
+      const currentPrefs = profile?.notification_preferences || {};
+      const updatedPrefs = {
+        ...currentPrefs,
+        [key]: value,
+      };
+
+      const result = await updateProfile({
+        notification_preferences: updatedPrefs,
+      });
+
+      if (!result.success) {
+        toast.error('Error', 'Failed to update notification preferences');
+      }
+    } catch (error) {
+      console.error('Error updating notification preferences:', error);
+      toast.error('Error', 'Failed to update notification preferences');
+    }
+  };
+
+  const handleNotificationsToggle = async (value) => {
+    setNotificationsEnabled(value);
+    await updateNotificationPreference('push', value);
+  };
+
+  const handleWhatsAppToggle = async (value) => {
+    setWhatsappEnabled(value);
+    await updateNotificationPreference('whatsapp', value);
+  };
+
+  const handleEmailToggle = async (value) => {
+    setEmailEnabled(value);
+    await updateNotificationPreference('email', value);
   };
 
   if (loading) {
@@ -227,6 +249,50 @@ export default function ProfileScreen() {
         </View>
       </GlassCard>
 
+      {(userData.userType === 'volunteer' || userData.userType === 'ngo') && (
+        <>
+          <GlassCard variant="secondary" intensity={80} style={styles.section}>
+            <Text style={styles.sectionTitle}>Verification Status</Text>
+            <TouchableOpacity style={styles.verificationRow} onPress={handleVerification}>
+              <View style={styles.verificationInfo}>
+                <MaterialIcons
+                  name={userData.verified ? 'verified' : 'verified-user'}
+                  size={24}
+                  color={userData.verified ? theme.colors.success : theme.colors.warning}
+                />
+                <View style={styles.verificationText}>
+                  <Text style={styles.verificationLabel}>
+                    {userData.verified ? 'Verified Account' : 'Verification Required'}
+                  </Text>
+                  <Text style={styles.verificationDescription}>
+                    {userData.verified
+                      ? 'Your account is verified'
+                      : 'Complete verification to receive case notifications'}
+                  </Text>
+                </View>
+              </View>
+              <MaterialIcons name="chevron-right" size={24} color={theme.colors.textTertiary} />
+            </TouchableOpacity>
+          </GlassCard>
+
+          <GlassCard variant="secondary" intensity={80} style={styles.section}>
+            <Text style={styles.sectionTitle}>Service Areas</Text>
+            <TouchableOpacity style={styles.menuRow} onPress={handleManageServiceAreas}>
+              <View style={styles.menuInfo}>
+                <MaterialIcons name="location-on" size={24} color={theme.colors.primary} />
+                <View style={styles.menuText}>
+                  <Text style={styles.menuLabel}>Manage Service Areas</Text>
+                  <Text style={styles.menuDescription}>
+                    Define areas where you can help
+                  </Text>
+                </View>
+              </View>
+              <MaterialIcons name="chevron-right" size={24} color={theme.colors.textTertiary} />
+            </TouchableOpacity>
+          </GlassCard>
+        </>
+      )}
+
       <GlassCard variant="secondary" intensity={80} style={styles.section}>
         <Text style={styles.sectionTitle}>Security</Text>
         
@@ -266,7 +332,7 @@ export default function ProfileScreen() {
           </View>
           <Switch
             value={notificationsEnabled}
-            onValueChange={setNotificationsEnabled}
+            onValueChange={handleNotificationsToggle}
             trackColor={{ false: theme.colors.border, true: theme.colors.primaryLight }}
             thumbColor={notificationsEnabled ? theme.colors.primary : theme.colors.textTertiary}
           />
@@ -284,7 +350,7 @@ export default function ProfileScreen() {
           </View>
           <Switch
             value={whatsappEnabled}
-            onValueChange={setWhatsappEnabled}
+            onValueChange={handleWhatsAppToggle}
             trackColor={{ false: theme.colors.border, true: theme.colors.primaryLight }}
             thumbColor={whatsappEnabled ? theme.colors.primary : theme.colors.textTertiary}
           />
@@ -302,7 +368,7 @@ export default function ProfileScreen() {
           </View>
           <Switch
             value={emailEnabled}
-            onValueChange={setEmailEnabled}
+            onValueChange={handleEmailToggle}
             trackColor={{ false: theme.colors.border, true: theme.colors.primaryLight }}
             thumbColor={emailEnabled ? theme.colors.primary : theme.colors.textTertiary}
           />
@@ -314,6 +380,15 @@ export default function ProfileScreen() {
           title="Edit Profile"
           onPress={handleEditProfile}
           variant="primary"
+          icon="edit"
+          style={styles.actionButton}
+          intensity={80}
+        />
+        <GlassButton
+          title="Settings"
+          onPress={handleSettings}
+          variant="secondary"
+          icon="settings"
           style={styles.actionButton}
           intensity={80}
         />
@@ -321,6 +396,7 @@ export default function ProfileScreen() {
           title="Logout"
           onPress={handleLogout}
           variant="light"
+          icon="logout"
           style={styles.actionButton}
           intensity={75}
         />
@@ -479,5 +555,55 @@ const styles = StyleSheet.create({
   actionButton: {
     width: '100%',
     marginBottom: 0,
+  },
+  verificationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+  },
+  verificationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: theme.spacing.md,
+  },
+  verificationText: {
+    flex: 1,
+  },
+  verificationLabel: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.textPrimary,
+    fontWeight: theme.typography.fontWeight.medium,
+    marginBottom: theme.spacing.xs,
+  },
+  verificationDescription: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+  },
+  menuInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: theme.spacing.md,
+  },
+  menuText: {
+    flex: 1,
+  },
+  menuLabel: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.textPrimary,
+    fontWeight: theme.typography.fontWeight.medium,
+    marginBottom: theme.spacing.xs,
+  },
+  menuDescription: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
   },
 });

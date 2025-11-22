@@ -1,12 +1,11 @@
 /**
  * @fileoverview Authentication Context
- * Manages user authentication state and provides auth methods
+ * Manages user authentication state and provides auth methods using Supabase Auth
  */
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
-import apiService from '../../services/api';
-import config from '../../config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import authService from '../services/authService';
 
 const AuthContext = createContext(null);
 
@@ -20,15 +19,40 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
 
-  // Check if biometric authentication is available
+  // Initialize auth state and set up listener
   useEffect(() => {
     checkBiometricAvailability();
-    loadStoredAuth();
+    initializeAuth();
+
+    // Set up auth state change listener
+    const subscription = authService.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
+      
+      if (session) {
+        setSession(session);
+        setUser(session.user);
+        
+        // Load user profile from profiles table
+        const profile = await authService.getUserProfile(session.user.id);
+        setProfile(profile);
+      } else {
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+      }
+      
+      setLoading(false);
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const checkBiometricAvailability = async () => {
@@ -46,17 +70,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const loadStoredAuth = async () => {
+  const initializeAuth = async () => {
     try {
-      const storedToken = await AsyncStorage.getItem(config.CACHE_KEYS.USER_TOKEN);
-      const storedUser = await AsyncStorage.getItem(config.CACHE_KEYS.USER_DATA);
+      // Get current session from Supabase (stored in AsyncStorage)
+      const session = await authService.getSession();
       
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+      if (session) {
+        setSession(session);
+        setUser(session.user);
+        
+        // Load user profile
+        const profile = await authService.getUserProfile(session.user.id);
+        setProfile(profile);
       }
     } catch (error) {
-      console.error('Error loading stored auth:', error);
+      console.error('Error initializing auth:', error);
     } finally {
       setLoading(false);
     }
@@ -64,19 +92,20 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await apiService.login({ email, password });
+      const result = await authService.signIn(email, password);
       
-      if (response.success && response.data && response.data.token) {
-        await AsyncStorage.setItem(config.CACHE_KEYS.USER_TOKEN, response.data.token);
-        await AsyncStorage.setItem(config.CACHE_KEYS.USER_DATA, JSON.stringify(response.data.user));
+      if (result.success) {
+        setSession(result.session);
+        setUser(result.user);
         
-        setToken(response.data.token);
-        setUser(response.data.user);
+        // Load user profile
+        const profile = await authService.getUserProfile(result.user.id);
+        setProfile(profile);
         
         return { success: true };
       }
       
-      return { success: false, message: response.error?.message || 'Login failed' };
+      return { success: false, message: result.error || 'Login failed' };
     } catch (error) {
       console.error('Login error:', error);
       return { success: false, message: error.message || 'Login failed' };
@@ -85,56 +114,118 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await apiService.register(userData);
+      const result = await authService.signUp(userData);
       
-      if (response.success && response.data && response.data.token) {
-        await AsyncStorage.setItem(config.CACHE_KEYS.USER_TOKEN, response.data.token);
-        await AsyncStorage.setItem(config.CACHE_KEYS.USER_DATA, JSON.stringify(response.data.user));
+      if (result.success) {
+        // Check if email confirmation is required
+        if (result.requiresEmailConfirmation) {
+          return {
+            success: true,
+            requiresEmailConfirmation: true,
+            message: result.message,
+          };
+        }
         
-        setToken(response.data.token);
-        setUser(response.data.user);
+        setSession(result.session);
+        setUser(result.user);
+        
+        // Load user profile (created by database trigger)
+        const profile = await authService.getUserProfile(result.user.id);
+        setProfile(profile);
         
         return { success: true };
       }
       
-      return { success: false, message: response.error?.message || 'Registration failed' };
+      return { success: false, message: result.error || 'Registration failed' };
     } catch (error) {
       console.error('Registration error:', error);
       return { success: false, message: error.message || 'Registration failed' };
     }
   };
 
-  const firebaseSignIn = async (firebaseToken) => {
+  const loginWithMagicLink = async (email) => {
     try {
-      const response = await apiService.googleAuth(firebaseToken);
+      const result = await authService.signInWithMagicLink(email);
       
-      if (response.success && response.data && response.data.token) {
-        await AsyncStorage.setItem(config.CACHE_KEYS.USER_TOKEN, response.data.token);
-        await AsyncStorage.setItem(config.CACHE_KEYS.USER_DATA, JSON.stringify(response.data.user));
-        
-        setToken(response.data.token);
-        setUser(response.data.user);
-        
-        return { success: true };
+      if (result.success) {
+        return {
+          success: true,
+          message: result.message,
+        };
       }
       
-      return { success: false, message: response.error?.message || 'Firebase sign-in failed' };
+      return { success: false, message: result.error || 'Failed to send magic link' };
     } catch (error) {
-      console.error('Firebase sign-in error:', error);
-      return { success: false, message: error.message || 'Firebase sign-in failed' };
+      console.error('Magic link error:', error);
+      return { success: false, message: error.message || 'Failed to send magic link' };
     }
   };
 
   const logout = async () => {
     try {
-      await apiService.logout();
+      await authService.signOut();
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      return { success: true };
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
-      await AsyncStorage.removeItem(config.CACHE_KEYS.USER_TOKEN);
-      await AsyncStorage.removeItem(config.CACHE_KEYS.USER_DATA);
-      setToken(null);
-      setUser(null);
+      return { success: false, message: error.message || 'Logout failed' };
+    }
+  };
+
+  const requestPasswordReset = async (email) => {
+    try {
+      const result = await authService.resetPassword(email);
+      return result;
+    } catch (error) {
+      console.error('Password reset error:', error);
+      return { success: false, message: error.message || 'Password reset failed' };
+    }
+  };
+
+  const updateUserPassword = async (newPassword) => {
+    try {
+      const result = await authService.updatePassword(newPassword);
+      return result;
+    } catch (error) {
+      console.error('Update password error:', error);
+      return { success: false, message: error.message || 'Password update failed' };
+    }
+  };
+
+  const updateProfile = async (profileData) => {
+    try {
+      if (!user) {
+        return { success: false, message: 'No user logged in' };
+      }
+      
+      const result = await authService.updateUserProfile(user.id, profileData);
+      
+      if (result.success) {
+        setProfile(result.profile);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Update profile error:', error);
+      return { success: false, message: error.message || 'Profile update failed' };
+    }
+  };
+
+  const refreshUserSession = async () => {
+    try {
+      const result = await authService.refreshSession();
+      
+      if (result.success) {
+        setSession(result.session);
+        setUser(result.session.user);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Refresh session error:', error);
+      return { success: false, message: error.message || 'Session refresh failed' };
     }
   };
 
@@ -145,6 +236,11 @@ export const AuthProvider = ({ children }) => {
         fallbackLabel: 'Use password',
         disableDeviceFallback: false,
       });
+      
+      if (result.success) {
+        // Refresh session after successful biometric auth
+        await refreshUserSession();
+      }
       
       return result.success;
     } catch (error) {
@@ -177,15 +273,20 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
-    token,
+    profile,
+    session,
     loading,
-    isAuthenticated: !!token,
+    isAuthenticated: !!session,
     biometricEnabled,
     biometricAvailable,
     login,
     register,
-    firebaseSignIn,
+    loginWithMagicLink,
     logout,
+    requestPasswordReset,
+    updateUserPassword,
+    updateProfile,
+    refreshUserSession,
     authenticateWithBiometric,
     enableBiometric,
     disableBiometric,

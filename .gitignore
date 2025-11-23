@@ -26,6 +26,6 @@ server/uploads/
 *.db
 *.sqlite
 
-# Native folders (uncomment if using managed workflow)
-# /android
-# /ios
+# Native folders (using CNG - Continuous Native Generation)
+/android
+/ios

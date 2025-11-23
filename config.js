@@ -40,8 +40,11 @@ const config = {
   MAX_IMAGES_PER_REPORT: 5,
   
   // Cloudinary Configuration
-  CLOUDINARY_CLOUD_NAME: 'your-cloud-name', // Replace with your Cloudinary cloud name
-  CLOUDINARY_UPLOAD_PRESET: 'animal-rescue', // Replace with your upload preset
+  // In Expo, EXPO_PUBLIC_ prefixed vars are automatically available
+  CLOUDINARY_CLOUD_NAME: 'drksnjhgi',
+  CLOUDINARY_API_KEY: '116776654212154',
+  CLOUDINARY_API_SECRET: 'Kcec1tpdts1M7SUPAK24fkxrQ6E',
+  CLOUDINARY_UPLOAD_PRESET: 'ml_default',
   
   // Notification Configuration
   NOTIFICATION_CHANNELS: {

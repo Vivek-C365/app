@@ -26,6 +26,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import apiService from '../services/apiService';
 import caseService from '../services/caseService';
 import notificationService from '../services/notificationService';
+import { supabase } from '../config/supabase';
 import toast from '../utils/toast';
 
 export default function AddStatusUpdateScreen({ route, navigation }) {
@@ -202,17 +203,35 @@ export default function AddStatusUpdateScreen({ route, navigation }) {
     try {
       setSubmitting(true);
 
-      // Upload photos to Supabase Storage
+      // Upload photos to Cloudinary
       let uploadedPhotoUrls = [];
       if (photos && photos.length > 0) {
-        const photoUris = photos.map(p => p.uri || p);
-        const uploadResponse = await apiService.uploadImages(photoUris, 'status-photos');
+        toast.info('Uploading Photos', 'Please wait while we upload your photos...');
+        const { uploadMultipleToCloudinary } = require('../services/uploadService');
         
-        if (uploadResponse.success && uploadResponse.data.images) {
-          uploadedPhotoUrls = uploadResponse.data.images.map(img => img.url);
-        } else {
-          throw new Error(uploadResponse.error || 'Failed to upload photos');
+        const uploadResults = await uploadMultipleToCloudinary(photos, (progress) => {
+          console.log('Upload progress:', progress);
+        });
+        
+        // Extract successful URLs
+        uploadedPhotoUrls = uploadResults
+          .filter(result => result.success)
+          .map(result => result.url);
+        
+        if (uploadedPhotoUrls.length < photos.length) {
+          toast.warning('Some Photos Failed', `${uploadedPhotoUrls.length} of ${photos.length} photos uploaded`);
         }
+        
+        if (uploadedPhotoUrls.length === 0) {
+          throw new Error('Failed to upload photos');
+        }
+      }
+
+      // Get current user ID
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      if (!currentUser) {
+        throw new Error('You must be logged in to add status updates');
       }
 
       const updateData = {
@@ -223,7 +242,7 @@ export default function AddStatusUpdateScreen({ route, navigation }) {
         treatment_provided: treatmentProvided,
         next_steps: nextSteps,
         photos: uploadedPhotoUrls,
-        updated_by: (await caseService.supabase?.auth.getUser())?.data?.user?.id,
+        updated_by: currentUser.id,
       };
 
       const response = await caseService.addStatusUpdate(caseId, updateData);

@@ -272,6 +272,26 @@ export default function ReportScreen() {
         throw new Error('You must be logged in to submit a report');
       }
 
+      // Upload photos to Cloudinary if any
+      let photoUrls = [];
+      if (photos.length > 0) {
+        toast.info('Uploading Photos', 'Please wait while we upload your photos...');
+        const { uploadMultipleToCloudinary } = require('../services/uploadService');
+        
+        const uploadResults = await uploadMultipleToCloudinary(photos, (progress) => {
+          console.log('Upload progress:', progress);
+        });
+        
+        // Extract successful URLs
+        photoUrls = uploadResults
+          .filter(result => result.success)
+          .map(result => result.url);
+        
+        if (photoUrls.length < photos.length) {
+          toast.warning('Some Photos Failed', `${photoUrls.length} of ${photos.length} photos uploaded`);
+        }
+      }
+
       // Prepare case data matching database schema
       const caseData = {
         reporter_id: currentUser.id,
@@ -290,7 +310,7 @@ export default function ReportScreen() {
           email: contactEmail || undefined,
           name: contactName,
         },
-        photos: photos,
+        photos: photoUrls, // Use uploaded URLs instead of local URIs
         status: 'open',
         urgency_level: 'medium',
       };

@@ -133,12 +133,20 @@ export default function CaseDetailsScreen({ route, navigation }) {
 
   const fetchTimeline = async () => {
     try {
+      console.log('Fetching timeline for case:', caseId);
       const response = await caseService.getCaseTimeline(caseId);
+      console.log('Timeline response:', response);
+      
       if (response.success && response.timeline) {
+        console.log('Timeline data:', response.timeline);
         setTimeline(response.timeline || []);
+      } else {
+        console.log('No timeline data or error:', response.error);
+        setTimeline([]);
       }
     } catch (error) {
       console.log('Error fetching timeline:', error);
+      setTimeline([]);
     }
   };
 
@@ -609,7 +617,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
       )}
 
       {/* Status Update Button for Assigned Users */}
-      {activeTab === 'timeline' && isUserAssigned() && caseData.status !== 'resolved' && caseData.status !== 'closed' && (
+      {activeTab === 'timeline' && (
         <View style={[styles.actionBar, { paddingBottom: insets.bottom + 80 }]}>
           <GlassButton
             title="Add Status Update"

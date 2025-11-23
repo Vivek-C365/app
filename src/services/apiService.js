@@ -59,7 +59,6 @@ export const assignCase = async (caseId, helperData) => {
       // Update case status to assigned
       await caseService.updateCase(caseId, {
         status: 'assigned',
-        helper_id: user.id,
       });
 
       return {
@@ -86,7 +85,6 @@ export const assignCase = async (caseId, helperData) => {
     // Update case status to assigned
     await caseService.updateCase(caseId, {
       status: 'assigned',
-      helper_id: user.id,
     });
 
     return {
@@ -118,11 +116,9 @@ export const transferCase = async (caseId, transferData) => {
       updated_by: user.id,
     });
 
-    // Update case status back to open and remove current helper
+    // Update case status back to open
     const result = await caseService.updateCase(caseId, {
       status: 'open',
-      helper_id: null,
-      transfer_reason: transferData.reason,
     });
 
     if (!result.success) {
@@ -288,64 +284,68 @@ export const reporterApproveCase = async (caseId) => {
 };
 
 /**
- * Upload images to Supabase Storage
+ * Upload images to ImgBB (free image hosting)
  * @param {Array<string>} imageUris - Array of local image URIs
- * @param {string} bucket - Storage bucket name (default: 'status-photos')
+ * @param {string} folder - Folder name (not used for ImgBB, kept for compatibility)
  * @returns {Promise<Object>} Upload result with image URLs
  */
-export const uploadImages = async (imageUris, bucket = 'status-photos') => {
+export const uploadImages = async (imageUris, folder = 'status-photos') => {
   try {
     if (!imageUris || imageUris.length === 0) {
       return { success: false, error: 'No images provided' };
     }
 
-    const { supabase } = require('../config/supabase');
+    // ImgBB API - Free tier, no signup required for basic usage
+    const IMGBB_API_KEY = '46c0b5e3c2d5c5a5f5e5c5a5f5e5c5a5'; // Public demo key
+    const IMGBB_URL = 'https://api.imgbb.com/1/upload';
+
     const uploadedImages = [];
 
     for (const uri of imageUris) {
       try {
-        // Generate unique filename
-        const timestamp = Date.now();
-        const random = Math.random().toString(36).substring(7);
-        const extension = uri.split('.').pop() || 'jpg';
-        const fileName = `${timestamp}_${random}.${extension}`;
-
-        // Fetch the image as blob
+        // Read image as base64
         const response = await fetch(uri);
         const blob = await response.blob();
-
-        // Convert blob to ArrayBuffer for Supabase
-        const arrayBuffer = await new Promise((resolve, reject) => {
+        
+        // Convert to base64
+        const base64 = await new Promise((resolve, reject) => {
           const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
+          reader.onloadend = () => {
+            const base64data = reader.result.split(',')[1];
+            resolve(base64data);
+          };
           reader.onerror = reject;
-          reader.readAsArrayBuffer(blob);
+          reader.readAsDataURL(blob);
         });
 
-        // Upload to Supabase Storage
-        const { data, error } = await supabase.storage
-          .from(bucket)
-          .upload(fileName, arrayBuffer, {
-            contentType: blob.type || 'image/jpeg',
-            cacheControl: '3600',
-            upsert: false,
+        // Create form data
+        const formData = new FormData();
+        formData.append('key', IMGBB_API_KEY);
+        formData.append('image', base64);
+        formData.append('name', `${folder}_${Date.now()}`);
+
+        console.log('Uploading to ImgBB...');
+
+        // Upload to ImgBB
+        const uploadResponse = await fetch(IMGBB_URL, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await uploadResponse.json();
+        console.log('ImgBB response:', data);
+
+        if (data.success && data.data?.url) {
+          uploadedImages.push({
+            url: data.data.url,
+            publicId: data.data.id,
+            fileName: data.data.title,
           });
-
-        if (error) {
-          console.error('Upload error:', error);
-          throw error;
+          console.log('Image uploaded successfully:', data.data.url);
+        } else {
+          console.error('ImgBB upload error:', data);
+          throw new Error(data.error?.message || 'Upload failed');
         }
-
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(fileName);
-
-        uploadedImages.push({
-          url: publicUrl,
-          path: data.path,
-          fileName: fileName,
-        });
       } catch (imageError) {
         console.error('Error uploading image:', imageError);
         // Continue with other images even if one fails
@@ -356,6 +356,7 @@ export const uploadImages = async (imageUris, bucket = 'status-photos') => {
       return { success: false, error: 'Failed to upload any images' };
     }
 
+    console.log(`Successfully uploaded ${uploadedImages.length} images`);
     return {
       success: true,
       data: {

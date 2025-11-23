@@ -184,13 +184,22 @@ export const markMessageAsRead = async (messageId, userId) => {
       .from('messages')
       .select('read_by')
       .eq('id', messageId)
-      .single();
+      .maybeSingle();
 
     if (fetchError) {
       console.error('Fetch message error:', fetchError);
       return {
         success: false,
         error: fetchError.message,
+      };
+    }
+
+    // If message doesn't exist, return success (it might have been deleted)
+    if (!message) {
+      console.warn('Message not found, skipping mark as read:', messageId);
+      return {
+        success: true,
+        message: null,
       };
     }
 
@@ -204,7 +213,7 @@ export const markMessageAsRead = async (messageId, userId) => {
         .update({ read_by: readBy })
         .eq('id', messageId)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Mark as read error:', error);

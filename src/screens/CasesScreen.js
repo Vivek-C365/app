@@ -255,29 +255,57 @@ export default function CasesScreen() {
       if (!isAuthenticated) {
         filtered = [];
       } else {
-        filtered = filtered.filter(caseItem => 
-          caseItem.status.toLowerCase() === 'assigned' &&
-          (caseItem.helperId === user?.id || caseItem.helperId === user?._id)
-        );
+        const userId = user?.id || user?._id;
+        filtered = filtered.filter(caseItem => {
+          const helperId = caseItem.helperId || caseItem.fullData?.helper_id || caseItem.fullData?.helper?.id;
+          const isAssigned = caseItem.status.toLowerCase() === 'assigned';
+          const isMyCase = helperId === userId;
+          
+          console.log('My Cases Filter:', {
+            caseId: caseItem.id,
+            status: caseItem.status,
+            helperId,
+            userId,
+            isAssigned,
+            isMyCase
+          });
+          
+          return isAssigned && isMyCase;
+        });
       }
     } else if (activeTab === 'reported') {
       // Show cases reported by current user
       if (!isAuthenticated) {
         filtered = [];
       } else {
-        filtered = filtered.filter(caseItem => 
-          caseItem.reporterId === user?.id || caseItem.reporterId === user?._id
-        );
+        const userId = user?.id || user?._id;
+        filtered = filtered.filter(caseItem => {
+          const reporterId = caseItem.reporterId || caseItem.fullData?.reporter_id || caseItem.fullData?.reporter?.id;
+          const isMyReport = reporterId === userId;
+          
+          console.log('Reported Cases Filter:', {
+            caseId: caseItem.id,
+            reporterId,
+            userId,
+            isMyReport
+          });
+          
+          return isMyReport;
+        });
       }
     } else if (activeTab === 'history') {
       // Show resolved cases for NGOs
       if (!isAuthenticated || user?.userType !== 'ngo') {
         filtered = [];
       } else {
-        filtered = filtered.filter(caseItem => 
-          caseItem.status.toLowerCase() === 'resolved' &&
-          (caseItem.helperId === user?.id || caseItem.helperId === user?._id)
-        );
+        const userId = user?.id || user?._id;
+        filtered = filtered.filter(caseItem => {
+          const helperId = caseItem.helperId || caseItem.fullData?.helper_id || caseItem.fullData?.helper?.id;
+          const isResolved = caseItem.status.toLowerCase() === 'resolved';
+          const isMyCase = helperId === userId;
+          
+          return isResolved && isMyCase;
+        });
       }
     }
 

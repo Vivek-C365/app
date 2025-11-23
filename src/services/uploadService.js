@@ -28,10 +28,17 @@ export const uploadToCloudinary = async (uri, onProgress) => {
       type,
     });
     
-    // Append upload preset (unsigned upload)
-    formData.append('upload_preset', config.CLOUDINARY_UPLOAD_PRESET);
+    // For unsigned uploads, we only need upload_preset
+    // No API key or signature needed
+    formData.append('upload_preset', 'ml_default');
     
-    // Upload to Cloudinary
+    console.log('Uploading to Cloudinary:', {
+      cloud: config.CLOUDINARY_CLOUD_NAME,
+      preset: 'ml_default',
+      filename,
+    });
+    
+    // Upload to Cloudinary using unsigned upload
     const response = await axios.post(
       `https://api.cloudinary.com/v1_1/${config.CLOUDINARY_CLOUD_NAME}/image/upload`,
       formData,
@@ -50,6 +57,8 @@ export const uploadToCloudinary = async (uri, onProgress) => {
       }
     );
     
+    console.log('Upload successful:', response.data.secure_url);
+    
     return {
       success: true,
       url: response.data.secure_url,
@@ -61,6 +70,7 @@ export const uploadToCloudinary = async (uri, onProgress) => {
     };
   } catch (error) {
     console.error('Cloudinary upload error:', error);
+    console.error('Error details:', error.response?.data);
     throw new Error(error.response?.data?.error?.message || 'Failed to upload image');
   }
 };

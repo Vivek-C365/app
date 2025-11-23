@@ -17,7 +17,15 @@ export const getCases = async (params = {}) => {
   try {
     let query = supabase
       .from('cases')
-      .select('*')
+      .select(`
+        *,
+        case_assignments!case_assignments_case_id_fkey(
+          id,
+          helper_id,
+          status,
+          accepted_at
+        )
+      `)
       .order('created_at', { ascending: false });
 
     // Apply filters
@@ -43,9 +51,22 @@ export const getCases = async (params = {}) => {
       };
     }
 
+    // Transform cases and add helper_id from assignments
+    const transformedCases = (data || []).map(caseData => {
+      const transformed = transformCase(caseData);
+      
+      // Get the accepted assignment if exists
+      const acceptedAssignment = caseData.case_assignments?.find(a => a.status === 'accepted');
+      if (acceptedAssignment) {
+        transformed.helper_id = acceptedAssignment.helper_id;
+      }
+      
+      return transformed;
+    });
+
     return {
       success: true,
-      cases: (data || []).map(transformCase),
+      cases: transformedCases,
     };
   } catch (error) {
     console.error('Get cases exception:', error);
@@ -98,7 +119,15 @@ export const getCaseById = async (id) => {
   try {
     const { data, error } = await supabase
       .from('cases')
-      .select('*')
+      .select(`
+        *,
+        case_assignments!case_assignments_case_id_fkey(
+          id,
+          helper_id,
+          status,
+          accepted_at
+        )
+      `)
       .eq('id', id)
       .single();
 
@@ -123,9 +152,40 @@ export const getCaseById = async (id) => {
       }
     }
 
+    // Get assigned helpers from case_assignments with full profile data
+    const assignedHelpers = [];
+    if (data.case_assignments) {
+      for (const assignment of data.case_assignments) {
+        if (assignment.status === 'accepted' && assignment.helper_id) {
+          // Fetch helper profile
+          const { data: helperProfile } = await supabase
+            .from('profiles')
+            .select('id, name, phone, user_type, email, verification_status')
+            .eq('id', assignment.helper_id)
+            .single();
+          
+          if (helperProfile) {
+            assignedHelpers.push({
+              id: helperProfile.id,
+              name: helperProfile.name,
+              phone: helperProfile.phone,
+              userType: helperProfile.user_type,
+              email: helperProfile.email,
+              verification: {
+                status: helperProfile.verification_status
+              }
+            });
+          }
+        }
+      }
+    }
+
+    const transformedCase = transformCase(data);
+    transformedCase.assignedHelpers = assignedHelpers;
+
     return {
       success: true,
-      case: transformCase(data),
+      case: transformedCase,
     };
   } catch (error) {
     console.error('Get case exception:', error);

@@ -541,6 +541,7 @@ export const archiveCase = async (caseId) => {
 
 /**
  * Trigger case workflow (calls edge function)
+ * Note: This is optional - if edge function is not deployed, it will fail gracefully
  * @param {string} caseId - Case ID
  * @returns {Promise<Object>} Workflow result
  */
@@ -551,10 +552,11 @@ export const triggerCaseWorkflow = async (caseId) => {
     });
 
     if (error) {
-      console.error('Trigger workflow error:', error);
+      console.warn('Trigger workflow error (edge function may not be deployed):', error.message);
       return {
         success: false,
         error: error.message,
+        fallback: true, // Indicates caller should use fallback method
       };
     }
 
@@ -563,10 +565,11 @@ export const triggerCaseWorkflow = async (caseId) => {
       result: data,
     };
   } catch (error) {
-    console.error('Trigger workflow exception:', error);
+    console.warn('Trigger workflow exception (edge function may not be deployed):', error.message);
     return {
       success: false,
       error: error.message || 'Failed to trigger workflow',
+      fallback: true, // Indicates caller should use fallback method
     };
   }
 };

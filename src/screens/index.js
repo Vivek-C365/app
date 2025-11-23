@@ -5,6 +5,7 @@ export { default as ReportScreen } from './ReportScreen';
 export { default as CasesScreen } from './CasesScreen';
 export { default as CaseDetailsScreen } from './CaseDetailsScreen';
 export { default as AIEmergencyScreen } from './AIEmergencyScreen';
+export { default as AIAssistantScreen } from './AIAssistantScreen';
 export { default as ProfileScreen } from './ProfileScreen';
 export { default as EditProfileScreen } from './EditProfileScreen';
 export { default as ServiceAreasScreen } from './ServiceAreasScreen';

@@ -12,16 +12,12 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Linking,
-  ActivityIndicator,
-  Alert
+  ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import MapView, { Marker } from 'react-native-maps';
 import { theme } from '../theme';
 import LoadingSpinner from '../components/LoadingSpinner';
-import GlassButton from '../components/GlassButton';
 import aiService from '../services/aiService';
 import caseService from '../services/caseService';
 import toast from '../utils/toast';
@@ -29,21 +25,13 @@ import toast from '../utils/toast';
 export default function AIEmergencyScreen({ route, navigation }) {
   const { caseId } = route.params;
   const insets = useSafeAreaInsets();
-  const scrollViewRef = useRef(null);
   const chatScrollRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [caseData, setCaseData] = useState(null);
-  const [activeTab, setActiveTab] = useState('facilities'); // 'facilities', 'chat', 'instructions', 'analysis'
-  const [facilities, setFacilities] = useState([]);
   const [chatMessages, setChatMessages] = useState([]);
   const [messageText, setMessageText] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [instructions, setInstructions] = useState([]);
-  const [photoAnalysis, setPhotoAnalysis] = useState(null);
-  const [loadingFacilities, setLoadingFacilities] = useState(false);
-  const [loadingInstructions, setLoadingInstructions] = useState(false);
-  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
 
   useEffect(() => {
     initializeEmergencyAssistance();
@@ -58,18 +46,40 @@ export default function AIEmergencyScreen({ route, navigation }) {
       if (caseResponse.success && caseResponse.case) {
         setCaseData(caseResponse.case);
         
-        // Activate AI emergency assistance
-        await aiService.activateEmergencyAssistance(caseId);
+        // Activate AI emergency assistance (non-blocking, optional)
+        try {
+          await aiService.activateEmergencyAssistance(caseId);
+        } catch (error) {
+          console.warn('AI activation failed, continuing anyway:', error);
+        }
         
-        // Load facilities and instructions in parallel
-        loadFacilities(caseResponse.case);
-        loadEmergencyInstructions(caseResponse.case);
+        // Create detailed case summary for AI
+        const caseSummary = `
+**Case Details:**
+- Animal Type: ${caseResponse.case.animalType || 'Unknown'}
+- Condition: ${caseResponse.case.description || 'Not specified'}
+- Location: ${caseResponse.case.location?.address || caseResponse.case.location?.landmarks || 'Unknown location'}
+- Urgency: ${caseResponse.case.urgencyLevel || 'Medium'}
+- Status: ${caseResponse.case.status || 'Open'}
+${caseResponse.case.photos && caseResponse.case.photos.length > 0 ? `- Photos: ${caseResponse.case.photos.length} attached` : ''}
+        `.trim();
         
-        // Add welcome message to chat
+        // Add welcome message with case context
         setChatMessages([{
           id: 'welcome',
           role: 'assistant',
-          content: `Hello! I'm here to help you with emergency assistance for this ${caseResponse.case.animalType}. I can provide facility recommendations, emergency care instructions, and answer your questions. How can I assist you?`,
+          content: `Hello! I'm your AI assistant for this animal rescue case. I have reviewed the case details and I'm here to help you with:
+
+${caseSummary}
+
+I can provide:
+• Emergency first aid guidance
+• Nearby facility recommendations
+• Transportation advice
+• Condition assessment
+• Step-by-step instructions
+
+What would you like help with?`,
           timestamp: new Date().toISOString(),
         }]);
       }
@@ -81,77 +91,7 @@ export default function AIEmergencyScreen({ route, navigation }) {
     }
   };
 
-  const loadFacilities = async (caseInfo) => {
-    try {
-      setLoadingFacilities(true);
-      const location = caseInfo.location?.coordinates 
-        ? { latitude: caseInfo.location.coordinates[1], longitude: caseInfo.location.coordinates[0] }
-        : null;
-      
-      if (!location) {
-        toast.info('Location Required', 'Unable to find facilities without location');
-        return;
-      }
 
-      const response = await aiService.getFacilityRecommendations(
-        caseId,
-        location,
-        caseInfo.animalType
-      );
-
-      if (response.success) {
-        setFacilities(response.facilities || []);
-      }
-    } catch (error) {
-      console.error('Load facilities error:', error);
-    } finally {
-      setLoadingFacilities(false);
-    }
-  };
-
-  const loadEmergencyInstructions = async (caseInfo) => {
-    try {
-      setLoadingInstructions(true);
-      const response = await aiService.getEmergencyInstructions(
-        caseId,
-        caseInfo.animalType,
-        caseInfo.condition,
-        caseInfo.photos || []
-      );
-
-      if (response.success) {
-        setInstructions(response.instructions || []);
-      }
-    } catch (error) {
-      console.error('Load instructions error:', error);
-    } finally {
-      setLoadingInstructions(false);
-    }
-  };
-
-  const loadPhotoAnalysis = async () => {
-    if (!caseData?.photos || caseData.photos.length === 0) {
-      toast.info('No Photos', 'No photos available for analysis');
-      return;
-    }
-
-    try {
-      setLoadingAnalysis(true);
-      const response = await aiService.analyzeAnimalPhotos(
-        caseData.photos,
-        caseData.animalType
-      );
-
-      if (response.success) {
-        setPhotoAnalysis(response);
-      }
-    } catch (error) {
-      console.error('Load photo analysis error:', error);
-      toast.error('Analysis Failed', 'Unable to analyze photos');
-    } finally {
-      setLoadingAnalysis(false);
-    }
-  };
 
   const sendChatMessage = async () => {
     if (!messageText.trim()) return;
@@ -168,18 +108,27 @@ export default function AIEmergencyScreen({ route, navigation }) {
     setSendingMessage(true);
 
     try {
-      const response = await aiService.sendAIChatMessage(
-        caseId,
-        userMessage.content,
-        chatMessages
-      );
+      // Include case context in the message
+      const caseContext = {
+        caseId: caseId,
+        animalType: caseData?.animalType,
+        condition: caseData?.description,
+        urgencyLevel: caseData?.urgencyLevel,
+        location: caseData?.location,
+        photos: caseData?.photos,
+      };
 
-      if (response.success) {
+      const response = await aiService.sendAIChatMessage({
+        message: userMessage.content,
+        conversationHistory: chatMessages.slice(-10), // Last 10 messages for context
+        caseContext: caseContext, // Include case details
+      });
+
+      if (response.success && response.message) {
         const assistantMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: response.response,
-          suggestions: response.suggestions,
+          content: response.message,
           timestamp: new Date().toISOString(),
         };
         setChatMessages(prev => [...prev, assistantMessage]);
@@ -188,399 +137,147 @@ export default function AIEmergencyScreen({ route, navigation }) {
         setTimeout(() => {
           chatScrollRef.current?.scrollToEnd({ animated: true });
         }, 100);
+      } else {
+        // Provide helpful fallback response
+        const assistantMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: 'I apologize, but the AI service is currently unavailable. Based on the case details, I recommend contacting nearby animal hospitals or rescue organizations immediately for professional help.',
+          timestamp: new Date().toISOString(),
+        };
+        setChatMessages(prev => [...prev, assistantMessage]);
+        
+        setTimeout(() => {
+          chatScrollRef.current?.scrollToEnd({ animated: true });
+        }, 100);
       }
     } catch (error) {
       console.error('Send chat message error:', error);
-      toast.error('Message Failed', 'Unable to send message');
+      // Provide helpful fallback response
+      const assistantMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'I apologize, but the AI service is currently unavailable. Based on the case details, I recommend contacting nearby animal hospitals or rescue organizations immediately for professional help.',
+        timestamp: new Date().toISOString(),
+      };
+      setChatMessages(prev => [...prev, assistantMessage]);
+      
+      setTimeout(() => {
+        chatScrollRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     } finally {
       setSendingMessage(false);
     }
   };
 
-  const handleCallFacility = (facility) => {
-    if (!facility.phone) {
-      toast.info('No Phone', 'Phone number not available');
-      return;
-    }
-
-    Alert.alert(
-      'Call Facility',
-      `Call ${facility.name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Call',
-          onPress: () => {
-            Linking.openURL(`tel:${facility.phone}`);
-          },
-        },
-      ]
-    );
-  };
-
-  const handleNavigateToFacility = (facility) => {
-    if (!facility.location?.latitude || !facility.location?.longitude) {
-      toast.info('No Location', 'Location not available');
-      return;
-    }
-
-    const url = Platform.select({
-      ios: `maps:0,0?q=${facility.location.latitude},${facility.location.longitude}`,
-      android: `geo:0,0?q=${facility.location.latitude},${facility.location.longitude}(${facility.name})`,
-    });
-
-    Linking.openURL(url).catch(() => {
-      toast.error('Navigation Failed', 'Unable to open maps');
-    });
-  };
-
-  const renderFacilitiesTab = () => (
-    <View style={styles.tabContent}>
-      {loadingFacilities ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Finding nearby facilities...</Text>
-        </View>
-      ) : facilities.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <MaterialIcons name="location-off" size={64} color={theme.colors.textSecondary} />
-          <Text style={styles.emptyText}>No facilities found nearby</Text>
-          <Text style={styles.emptySubtext}>Try using the chat for alternative suggestions</Text>
-        </View>
-      ) : (
-        <ScrollView style={styles.facilitiesList} showsVerticalScrollIndicator={false}>
-          {facilities.map((facility, index) => (
-            <View key={index} style={styles.facilityCard}>
-              <View style={styles.facilityHeader}>
-                <MaterialIcons 
-                  name={facility.type === 'hospital' ? 'local-hospital' : 'home'} 
-                  size={24} 
-                  color={theme.colors.primary} 
-                />
-                <View style={styles.facilityInfo}>
-                  <Text style={styles.facilityName}>{facility.name}</Text>
-                  {facility.specialization && (
-                    <Text style={styles.facilitySpecialization}>{facility.specialization}</Text>
-                  )}
-                </View>
-              </View>
-
-              {facility.address && (
-                <Text style={styles.facilityAddress}>{facility.address}</Text>
-              )}
-
-              {facility.distance && (
-                <View style={styles.facilityMeta}>
-                  <MaterialIcons name="place" size={16} color={theme.colors.textSecondary} />
-                  <Text style={styles.facilityMetaText}>{facility.distance}</Text>
-                </View>
-              )}
-
-              {facility.hours && (
-                <View style={styles.facilityMeta}>
-                  <MaterialIcons name="access-time" size={16} color={theme.colors.textSecondary} />
-                  <Text style={styles.facilityMetaText}>{facility.hours}</Text>
-                </View>
-              )}
-
-              <View style={styles.facilityActions}>
-                <GlassButton
-                  title="Call"
-                  onPress={() => handleCallFacility(facility)}
-                  icon="phone"
-                  variant="primary"
-                  style={styles.facilityButton}
-                />
-                <GlassButton
-                  title="Navigate"
-                  onPress={() => handleNavigateToFacility(facility)}
-                  icon="directions"
-                  variant="secondary"
-                  style={styles.facilityButton}
-                />
-              </View>
-            </View>
-          ))}
-        </ScrollView>
-      )}
-    </View>
-  );
-
-  const renderChatTab = () => (
-    <KeyboardAvoidingView 
-      style={styles.chatContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={100}
+  const renderChat = () => (
+    <ScrollView 
+      ref={chatScrollRef}
+      style={styles.chatMessages}
+      contentContainerStyle={styles.chatMessagesContent}
+      showsVerticalScrollIndicator={false}
     >
-      <ScrollView 
-        ref={chatScrollRef}
-        style={styles.chatMessages}
-        contentContainerStyle={styles.chatMessagesContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {chatMessages.map((message) => (
-          <View 
-            key={message.id} 
-            style={[
-              styles.chatMessage,
-              message.role === 'user' ? styles.userMessage : styles.assistantMessage
-            ]}
-          >
-            <Text style={[
-              styles.chatMessageText,
-              message.role === 'user' ? styles.userMessageText : styles.assistantMessageText
-            ]}>
-              {message.content}
-            </Text>
-            {message.suggestions && message.suggestions.length > 0 && (
-              <View style={styles.suggestions}>
-                {message.suggestions.map((suggestion, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.suggestionChip}
-                    onPress={() => setMessageText(suggestion)}
-                  >
-                    <Text style={styles.suggestionText}>{suggestion}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        ))}
-        {sendingMessage && (
-          <View style={[styles.chatMessage, styles.assistantMessage]}>
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-          </View>
-        )}
-      </ScrollView>
-
-      <View style={styles.chatInputContainer}>
-        <TextInput
-          style={styles.chatInput}
-          value={messageText}
-          onChangeText={setMessageText}
-          placeholder="Ask for help..."
-          placeholderTextColor={theme.colors.textSecondary}
-          multiline
-          maxLength={500}
-        />
-        <TouchableOpacity
-          style={[styles.sendButton, !messageText.trim() && styles.sendButtonDisabled]}
-          onPress={sendChatMessage}
-          disabled={!messageText.trim() || sendingMessage}
+      {chatMessages.map((message) => (
+        <View 
+          key={message.id} 
+          style={[
+            styles.chatMessage,
+            message.role === 'user' ? styles.userMessage : styles.assistantMessage
+          ]}
         >
-          <MaterialIcons 
-            name="send" 
-            size={24} 
-            color={messageText.trim() ? theme.colors.primary : theme.colors.textSecondary} 
-          />
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
-  );
-
-  const renderInstructionsTab = () => (
-    <View style={styles.tabContent}>
-      {loadingInstructions ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Generating instructions...</Text>
-        </View>
-      ) : instructions.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <MaterialIcons name="info-outline" size={64} color={theme.colors.textSecondary} />
-          <Text style={styles.emptyText}>No instructions available</Text>
-        </View>
-      ) : (
-        <ScrollView style={styles.instructionsList} showsVerticalScrollIndicator={false}>
-          <View style={styles.warningBanner}>
-            <MaterialIcons name="warning" size={24} color={theme.colors.warning} />
-            <Text style={styles.warningText}>
-              These are AI-generated suggestions. Always prioritize professional veterinary care.
-            </Text>
-          </View>
-
-          {instructions.map((instruction, index) => (
-            <View key={index} style={styles.instructionCard}>
-              <View style={styles.instructionHeader}>
-                <View style={styles.instructionNumber}>
-                  <Text style={styles.instructionNumberText}>{index + 1}</Text>
-                </View>
-                <Text style={styles.instructionTitle}>{instruction.title}</Text>
-              </View>
-              <Text style={styles.instructionDescription}>{instruction.description}</Text>
-              {instruction.warning && (
-                <View style={styles.instructionWarning}>
-                  <MaterialIcons name="error-outline" size={16} color={theme.colors.error} />
-                  <Text style={styles.instructionWarningText}>{instruction.warning}</Text>
-                </View>
-              )}
-            </View>
-          ))}
-        </ScrollView>
-      )}
-    </View>
-  );
-
-  const renderAnalysisTab = () => (
-    <View style={styles.tabContent}>
-      {!photoAnalysis && !loadingAnalysis ? (
-        <View style={styles.emptyContainer}>
-          <MaterialIcons name="photo-camera" size={64} color={theme.colors.textSecondary} />
-          <Text style={styles.emptyText}>Photo Analysis</Text>
-          <Text style={styles.emptySubtext}>
-            {caseData?.photos?.length > 0 
-              ? 'Tap below to analyze animal photos' 
-              : 'No photos available for analysis'}
+          <Text style={[
+            styles.chatMessageText,
+            message.role === 'user' ? styles.userMessageText : styles.assistantMessageText
+          ]}>
+            {message.content}
           </Text>
-          {caseData?.photos?.length > 0 && (
-            <GlassButton
-              title="Analyze Photos"
-              onPress={loadPhotoAnalysis}
-              icon="analytics"
-              variant="primary"
-              style={styles.analyzeButton}
-            />
-          )}
-        </View>
-      ) : loadingAnalysis ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Analyzing photos...</Text>
-        </View>
-      ) : (
-        <ScrollView style={styles.analysisList} showsVerticalScrollIndicator={false}>
-          <View style={styles.analysisCard}>
-            <Text style={styles.analysisTitle}>AI Analysis</Text>
-            <Text style={styles.analysisText}>{photoAnalysis.analysis}</Text>
-          </View>
-
-          {photoAnalysis.injuryAssessment && (
-            <View style={styles.analysisCard}>
-              <Text style={styles.analysisTitle}>Injury Assessment</Text>
-              <View style={styles.assessmentItem}>
-                <Text style={styles.assessmentLabel}>Severity:</Text>
-                <Text style={[
-                  styles.assessmentValue,
-                  { color: getSeverityColor(photoAnalysis.injuryAssessment.severity) }
-                ]}>
-                  {photoAnalysis.injuryAssessment.severity}
-                </Text>
-              </View>
-              {photoAnalysis.injuryAssessment.details && (
-                <Text style={styles.assessmentDetails}>{photoAnalysis.injuryAssessment.details}</Text>
-              )}
-            </View>
-          )}
-
-          {photoAnalysis.recommendedActions && photoAnalysis.recommendedActions.length > 0 && (
-            <View style={styles.analysisCard}>
-              <Text style={styles.analysisTitle}>Recommended Actions</Text>
-              {photoAnalysis.recommendedActions.map((action, index) => (
-                <View key={index} style={styles.actionItem}>
-                  <MaterialIcons name="check-circle" size={20} color={theme.colors.success} />
-                  <Text style={styles.actionText}>{action}</Text>
-                </View>
+          {message.suggestions && message.suggestions.length > 0 && (
+            <View style={styles.suggestions}>
+              {message.suggestions.map((suggestion, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.suggestionChip}
+                  onPress={() => setMessageText(suggestion)}
+                >
+                  <Text style={styles.suggestionText}>{suggestion}</Text>
+                </TouchableOpacity>
               ))}
             </View>
           )}
-        </ScrollView>
+        </View>
+      ))}
+      {sendingMessage && (
+        <View style={[styles.chatMessage, styles.assistantMessage]}>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        </View>
       )}
+    </ScrollView>
+  );
+
+  const renderInput = () => (
+    <View style={styles.chatInputContainer}>
+      <TextInput
+        style={styles.chatInput}
+        value={messageText}
+        onChangeText={setMessageText}
+        placeholder="Ask for help..."
+        placeholderTextColor={theme.colors.textTertiary}
+        multiline
+        maxLength={500}
+        editable={!sendingMessage}
+      />
+      <TouchableOpacity
+        style={[styles.sendButton, (!messageText.trim() || sendingMessage) && styles.sendButtonDisabled]}
+        onPress={sendChatMessage}
+        disabled={!messageText.trim() || sendingMessage}
+      >
+        {sendingMessage ? (
+          <ActivityIndicator size="small" color={theme.colors.white} />
+        ) : (
+          <MaterialIcons 
+            name="send" 
+            size={20} 
+            color={messageText.trim() ? theme.colors.white : theme.colors.textTertiary} 
+          />
+        )}
+      </TouchableOpacity>
     </View>
   );
 
-  const getSeverityColor = (severity) => {
-    switch (severity?.toLowerCase()) {
-      case 'critical': return theme.colors.error;
-      case 'high': return theme.colors.warning;
-      case 'medium': return theme.colors.info;
-      case 'low': return theme.colors.success;
-      default: return theme.colors.textPrimary;
-    }
-  };
+
 
   if (loading) {
-    return <LoadingSpinner />;
+    return <LoadingSpinner fullScreen />;
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>AI Emergency Assistance</Text>
-          <Text style={styles.headerSubtitle}>Case #{caseData?.id?.slice(0, 8)}</Text>
+          <Text style={styles.headerTitle}>AI Help</Text>
+          <Text style={styles.headerSubtitle}>
+            {caseData?.animalType ? `${caseData.animalType} • ` : ''}Case #{caseData?.id?.slice(0, 8)}
+          </Text>
+        </View>
+        <View style={styles.aiIndicator}>
+          <MaterialIcons name="auto-awesome" size={20} color={theme.colors.primary} />
         </View>
       </View>
 
-      {/* Tab Navigation */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'facilities' && styles.activeTab]}
-          onPress={() => setActiveTab('facilities')}
-        >
-          <MaterialIcons 
-            name="local-hospital" 
-            size={20} 
-            color={activeTab === 'facilities' ? theme.colors.primary : theme.colors.textSecondary} 
-          />
-          <Text style={[styles.tabText, activeTab === 'facilities' && styles.activeTabText]}>
-            Facilities
-          </Text>
-        </TouchableOpacity>
+      {/* Chat Content */}
+      {renderChat()}
 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'chat' && styles.activeTab]}
-          onPress={() => setActiveTab('chat')}
-        >
-          <MaterialIcons 
-            name="chat" 
-            size={20} 
-            color={activeTab === 'chat' ? theme.colors.primary : theme.colors.textSecondary} 
-          />
-          <Text style={[styles.tabText, activeTab === 'chat' && styles.activeTabText]}>
-            Chat
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'instructions' && styles.activeTab]}
-          onPress={() => setActiveTab('instructions')}
-        >
-          <MaterialIcons 
-            name="list" 
-            size={20} 
-            color={activeTab === 'instructions' ? theme.colors.primary : theme.colors.textSecondary} 
-          />
-          <Text style={[styles.tabText, activeTab === 'instructions' && styles.activeTabText]}>
-            Instructions
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'analysis' && styles.activeTab]}
-          onPress={() => setActiveTab('analysis')}
-        >
-          <MaterialIcons 
-            name="analytics" 
-            size={20} 
-            color={activeTab === 'analysis' ? theme.colors.primary : theme.colors.textSecondary} 
-          />
-          <Text style={[styles.tabText, activeTab === 'analysis' && styles.activeTabText]}>
-            Analysis
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Tab Content */}
-      {activeTab === 'facilities' && renderFacilitiesTab()}
-      {activeTab === 'chat' && renderChatTab()}
-      {activeTab === 'instructions' && renderInstructionsTab()}
-      {activeTab === 'analysis' && renderAnalysisTab()}
-    </View>
+      {/* Input - Positioned absolutely at bottom */}
+      {renderInput()}
+    </KeyboardAvoidingView>
   );
 }
 
@@ -615,35 +312,15 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginTop: 2,
   },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
+  aiIndicator: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: theme.spacing.sm,
-    gap: theme.spacing.xs,
   },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: theme.colors.primary,
-  },
-  tabText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textSecondary,
-  },
-  activeTabText: {
-    color: theme.colors.primary,
-    fontWeight: theme.typography.fontWeight.semibold,
-  },
-  tabContent: {
-    flex: 1,
-  },
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -673,72 +350,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: theme.spacing.xs,
   },
-  analyzeButton: {
-    marginTop: theme.spacing.lg,
-  },
-  facilitiesList: {
-    flex: 1,
-    padding: theme.spacing.md,
-  },
-  facilityCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  facilityHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  facilityInfo: {
-    flex: 1,
-    marginLeft: theme.spacing.sm,
-  },
-  facilityName: {
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.textPrimary,
-  },
-  facilitySpecialization: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  facilityAddress: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.sm,
-  },
-  facilityMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: theme.spacing.xs,
-    gap: theme.spacing.xs,
-  },
-  facilityMetaText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textSecondary,
-  },
-  facilityActions: {
-    flexDirection: 'row',
-    marginTop: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  facilityButton: {
-    flex: 1,
-  },
-  chatContainer: {
-    flex: 1,
-  },
   chatMessages: {
     flex: 1,
-    padding: theme.spacing.md,
   },
   chatMessagesContent: {
-    paddingBottom: theme.spacing.md,
+    padding: theme.spacing.md,
+    paddingBottom: 180, // Space for input + tab bar
   },
   chatMessage: {
     maxWidth: '80%',
@@ -783,155 +400,50 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
   chatInputContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: 110, // Space for tab bar
+    backgroundColor: theme.colors.background,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    zIndex: 1000,
+    elevation: 10,
   },
   chatInput: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: 24,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    fontSize: theme.typography.fontSize.md,
+    paddingVertical: 12,
+    fontSize: 15,
     color: theme.colors.textPrimary,
     maxHeight: 100,
+    minHeight: 48,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    textAlignVertical: 'center',
   },
   sendButton: {
-    marginLeft: theme.spacing.sm,
-    padding: theme.spacing.sm,
+    width: 48,
+    height: 48,
+    backgroundColor: theme.colors.accent,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sendButtonDisabled: {
-    opacity: 0.5,
-  },
-  instructionsList: {
-    flex: 1,
-    padding: theme.spacing.md,
-  },
-  warningBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.warningLight || 'rgba(255, 193, 7, 0.1)',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    marginBottom: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.warning,
-  },
-  instructionCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  instructionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  instructionNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: theme.spacing.sm,
-  },
-  instructionNumberText: {
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: '#FFFFFF',
-  },
-  instructionTitle: {
-    flex: 1,
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.textPrimary,
-  },
-  instructionDescription: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textSecondary,
-    lineHeight: 20,
-  },
-  instructionWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: theme.spacing.sm,
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.errorLight || 'rgba(244, 67, 54, 0.1)',
-    borderRadius: theme.borderRadius.sm,
-    gap: theme.spacing.xs,
-  },
-  instructionWarningText: {
-    flex: 1,
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.error,
-  },
-  analysisList: {
-    flex: 1,
-    padding: theme.spacing.md,
-  },
-  analysisCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  analysisTitle: {
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.sm,
-  },
-  analysisText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textSecondary,
-    lineHeight: 20,
-  },
-  assessmentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.xs,
-  },
-  assessmentLabel: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textSecondary,
-    marginRight: theme.spacing.xs,
-  },
-  assessmentValue: {
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.semibold,
-  },
-  assessmentDetails: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textSecondary,
-    marginTop: theme.spacing.xs,
-    lineHeight: 20,
-  },
-  actionItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: theme.spacing.sm,
-    gap: theme.spacing.sm,
-  },
-  actionText: {
-    flex: 1,
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textPrimary,
-    lineHeight: 20,
+    backgroundColor: theme.colors.surfaceLight,
+    opacity: 0.6,
   },
 });

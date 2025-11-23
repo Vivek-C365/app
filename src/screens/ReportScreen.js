@@ -15,17 +15,19 @@ import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PhotoManager from '../components/PhotoManager';
 import LocationPicker from '../components/LocationPicker';
-import apiService from '../services/apiService';
+import OfflineIndicator from '../components/OfflineIndicator';
 import caseService from '../services/caseService';
 import { supabase } from '../config/supabase';
 import config from '../../config';
 import toast from '../utils/toast';
 import { useAuth } from '../contexts/AuthContext';
+import { useOffline } from '../contexts/OfflineContext';
 
 const DRAFT_KEY = '@report_draft';
 
 export default function ReportScreen() {
   const { user, isAuthenticated } = useAuth();
+  const { isOnline, saveDraft: saveOfflineDraft, getDrafts, deleteDraft: deleteOfflineDraft } = useOffline();
   const [animalType, setAnimalType] = useState('');
   const [condition, setCondition] = useState('');
   const [description, setDescription] = useState('');
@@ -42,6 +44,7 @@ export default function ReportScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [hasDraft, setHasDraft] = useState(false);
+  const [currentDraftId, setCurrentDraftId] = useState(null);
   const [contactFieldsDisabled, setContactFieldsDisabled] = useState(false);
   const [wantsFollowUp, setWantsFollowUp] = useState(null); // New field for follow-up preference - null means not selected yet
   const insets = useSafeAreaInsets();
@@ -88,6 +91,29 @@ export default function ReportScreen() {
 
   const loadDraft = async () => {
     try {
+      // Try to load from offline service first
+      const drafts = await getDrafts();
+      const reportDrafts = drafts.filter(d => d.type === 'report');
+      
+      if (reportDrafts.length > 0) {
+        // Load the most recent draft
+        const draft = reportDrafts[reportDrafts.length - 1];
+        setAnimalType(draft.animalType || '');
+        setCondition(draft.condition || '');
+        setDescription(draft.description || '');
+        setLocation(draft.location || '');
+        setLocationCoords(draft.locationCoords || null);
+        setLandmark(draft.landmark || '');
+        setContactName(draft.contactName || '');
+        setContactPhone(draft.contactPhone || '');
+        setContactEmail(draft.contactEmail || '');
+        setPhotos(draft.photos || []);
+        setCurrentDraftId(draft.id);
+        setHasDraft(true);
+        return;
+      }
+      
+      // Fallback to old AsyncStorage draft
       const draftJson = await AsyncStorage.getItem(DRAFT_KEY);
       if (draftJson) {
         const draft = JSON.parse(draftJson);
@@ -102,6 +128,24 @@ export default function ReportScreen() {
         setContactEmail(draft.contactEmail || '');
         setPhotos(draft.photos || []);
         setHasDraft(true);
+        
+        // Migrate to new offline service
+        await saveOfflineDraft({
+          type: 'report',
+          animalType: draft.animalType,
+          condition: draft.condition,
+          description: draft.description,
+          location: draft.location,
+          locationCoords: draft.locationCoords,
+          landmark: draft.landmark,
+          contactName: draft.contactName,
+          contactPhone: draft.contactPhone,
+          contactEmail: draft.contactEmail,
+          photos: draft.photos,
+        });
+        
+        // Remove old draft
+        await AsyncStorage.removeItem(DRAFT_KEY);
       }
     } catch (error) {
       console.error('Error loading draft:', error);
@@ -113,6 +157,7 @@ export default function ReportScreen() {
       // Only save if there's some content
       if (animalType || condition || description || location || photos.length > 0) {
         const draft = {
+          type: 'report',
           animalType,
           condition,
           description,
@@ -123,9 +168,12 @@ export default function ReportScreen() {
           contactPhone,
           contactEmail,
           photos,
-          savedAt: new Date().toISOString(),
         };
-        await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+        
+        const result = await saveOfflineDraft(draft, currentDraftId);
+        if (result.success && !currentDraftId) {
+          setCurrentDraftId(result.draftId);
+        }
       }
     } catch (error) {
       console.error('Error saving draft:', error);
@@ -134,8 +182,13 @@ export default function ReportScreen() {
 
   const clearDraft = async () => {
     try {
+      if (currentDraftId) {
+        await deleteOfflineDraft(currentDraftId);
+      }
+      // Also clear old AsyncStorage draft
       await AsyncStorage.removeItem(DRAFT_KEY);
       setHasDraft(false);
+      setCurrentDraftId(null);
     } catch (error) {
       console.error('Error clearing draft:', error);
     }
@@ -247,13 +300,25 @@ export default function ReportScreen() {
 
       if (response.success) {
         // Trigger case workflow to find and notify nearby helpers
-        const workflowResponse = await caseService.triggerCaseWorkflow(response.case.id);
-        
-        if (workflowResponse.success) {
-          console.log('Case workflow triggered:', workflowResponse.result);
-        } else {
-          console.warn('Failed to trigger workflow:', workflowResponse.error);
-          // Don't fail the submission if workflow fails
+        // This is non-blocking - case is already created successfully
+        try {
+          const workflowResponse = await caseService.triggerCaseWorkflow(response.case.id);
+          
+          if (workflowResponse.success) {
+            console.log('Case workflow triggered:', workflowResponse.result);
+          } else {
+            console.warn('Failed to trigger workflow:', workflowResponse.error);
+            // Fallback: Try to find helpers directly without edge function
+            if (locationCoords) {
+              await caseService.findHelpersForCase(response.case.id, {
+                radiusKm: 10,
+                urgencyLevel: 'medium',
+              });
+            }
+          }
+        } catch (workflowError) {
+          console.warn('Workflow trigger exception:', workflowError);
+          // Case is still created successfully, just workflow notification failed
         }
         
         // Clear draft after successful submission
@@ -339,6 +404,9 @@ export default function ReportScreen() {
             </View>
           )}
         </View>
+
+        {/* Offline Indicator - only shows when offline or syncing */}
+        <OfflineIndicator style={{ marginBottom: theme.spacing.sm }} />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Animal Information</Text>
@@ -590,17 +658,17 @@ export default function ReportScreen() {
           <GlassButton
             title="Clear Form"
             onPress={handleClearForm}
-            variant="light"
+            variant="secondary"
             size="large"
-            style={{ flex: 1 }}
+            style={styles.clearButton}
           />
           <GlassButton
             title="Submit Report"
             onPress={handleSubmit}
             loading={loading}
-            variant="accent"
+            variant="primary"
             size="large"
-            style={{ flex: 2 }}
+            style={styles.submitButton}
           />
         </View>
 
@@ -762,6 +830,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: theme.spacing.md,
     marginBottom: theme.spacing.md,
+    alignItems: 'center',
+  },
+  clearButton: {
+    flex: 1,
+  },
+  submitButton: {
+    flex: 1,
   },
   requiredNote: {
     fontSize: theme.typography.fontSize.sm,

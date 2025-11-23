@@ -108,6 +108,8 @@ export const AuthProvider = ({ children }) => {
         const profile = await authService.getUserProfile(result.user.id);
         setProfile(profile);
         
+        // Register push token (will be handled by NotificationContext)
+        
         return { success: true };
       }
       

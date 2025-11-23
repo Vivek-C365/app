@@ -6,6 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { theme } from '../theme';
+import { useNotifications } from '../contexts/NotificationContext';
 import GlassTabBar from '../components/GlassTabBar';
 import TabIcon from '../components/TabIcon';
 import ReportScreen from '../screens/ReportScreen';
@@ -20,6 +21,7 @@ import ServiceAreasScreen from '../screens/ServiceAreasScreen';
 import VerificationScreen from '../screens/VerificationScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import AIEmergencyScreen from '../screens/AIEmergencyScreen';
+import AIAssistantScreen from '../screens/AIAssistantScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -29,7 +31,7 @@ function getTabBarVisibility(route) {
   const routeName = getFocusedRouteNameFromRoute(route) ?? 'CasesList';
   
   // Hide tab bar on these screens
-  const hideTabBarScreens = ['CaseDetails', 'AddStatusUpdate', 'AIEmergency', 'EditProfile', 'ServiceAreas', 'Verification', 'Settings'];
+  const hideTabBarScreens = ['CaseDetails', 'AddStatusUpdate', 'AIEmergency', 'Notifications', 'EditProfile', 'ServiceAreas', 'Verification', 'Settings'];
   
   return !hideTabBarScreens.includes(routeName);
 }
@@ -47,6 +49,7 @@ function CasesStack() {
       <Stack.Screen name="CaseDetails" component={CaseDetailsScreen} />
       <Stack.Screen name="AddStatusUpdate" component={AddStatusUpdateScreen} />
       <Stack.Screen name="AIEmergency" component={AIEmergencyScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
     </Stack.Navigator>
   );
 }
@@ -70,6 +73,8 @@ function ProfileStack() {
 }
 
 export default function TabNavigator() {
+  const { badgeCount } = useNotifications();
+
   return (
     <Tab.Navigator
       tabBar={props => <GlassTabBar {...props} />}
@@ -118,12 +123,13 @@ export default function TabNavigator() {
         }}
       />
       <Tab.Screen
-        name="Notifications"
-        component={NotificationsScreen}
+        name="AIAssistant"
+        component={AIAssistantScreen}
         options={{
-          title: 'Notifications',
+          title: 'AI Assistant',
           headerShown: false,
-          tabBarIcon: (props) => <TabIcon icon="bell" {...props} />,
+          tabBarIcon: (props) => <TabIcon icon="sparkles" {...props} />,
+          tabBarStyle: { height: 0, display: 'none' },
         }}
       />
       <Tab.Screen

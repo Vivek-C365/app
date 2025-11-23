@@ -31,22 +31,23 @@ import apiService from '../services/apiService';
 import caseService from '../services/caseService';
 import toast from '../utils/toast';
 import { useAuth } from '../contexts/AuthContext';
+import { useMessaging } from '../contexts/MessagingContext';
+import { useRealtime } from '../contexts/RealtimeContext';
+import CaseMessaging from '../components/CaseMessaging';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function CaseDetailsScreen({ route, navigation }) {
   const { caseId } = route.params;
   const { user } = useAuth();
+  const { unreadCounts } = useMessaging();
+  const { subscribeToCaseUpdates, subscribeToStatusUpdates } = useRealtime();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef(null);
-  const messagesEndRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [caseData, setCaseData] = useState(null);
-  const [messages, setMessages] = useState([]);
   const [timeline, setTimeline] = useState([]);
-  const [messageText, setMessageText] = useState('');
-  const [sendingMessage, setSendingMessage] = useState(false);
   const [activeTab, setActiveTab] = useState('details'); // 'details', 'messages', 'timeline'
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [expandedTimelineItems, setExpandedTimelineItems] = useState({});
@@ -54,7 +55,6 @@ export default function CaseDetailsScreen({ route, navigation }) {
 
   useEffect(() => {
     fetchCaseDetails();
-    fetchMessages();
     fetchTimeline();
   }, [caseId]);
 
@@ -63,11 +63,56 @@ export default function CaseDetailsScreen({ route, navigation }) {
     const unsubscribe = navigation.addListener('focus', () => {
       fetchCaseDetails();
       fetchTimeline();
-      fetchMessages();
     });
 
     return unsubscribe;
   }, [navigation]);
+
+  // Subscribe to case updates
+  useEffect(() => {
+    const subscription = subscribeToCaseUpdates(caseId, (updateData) => {
+      console.log('Case updated in real-time:', updateData);
+      
+      // Update case data with new information
+      setCaseData(prevData => ({
+        ...prevData,
+        ...updateData.new,
+        status: updateData.new.status,
+      }));
+
+      // Show toast for status changes
+      if (updateData.changes.includes('status')) {
+        toast.info('Case Updated', `Status changed to ${updateData.new.status}`);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [caseId, subscribeToCaseUpdates]);
+
+  // Subscribe to status updates
+  useEffect(() => {
+    const subscription = subscribeToStatusUpdates(caseId, (statusUpdate) => {
+      console.log('New status update received:', statusUpdate);
+      
+      // Add to timeline
+      setTimeline(prevTimeline => [statusUpdate, ...prevTimeline]);
+      
+      // Show toast notification
+      toast.info(
+        'Status Update', 
+        `${statusUpdate.updated_by?.name || 'Someone'} added an update`
+      );
+      
+      // Refresh case details to get updated status
+      fetchCaseDetails();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [caseId, subscribeToStatusUpdates]);
 
   const fetchCaseDetails = async () => {
     try {
@@ -84,16 +129,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
     }
   };
 
-  const fetchMessages = async () => {
-    try {
-      const response = await apiService.getMessages(caseId);
-      if (response.success && response.data) {
-        setMessages(response.data.messages || []);
-      }
-    } catch (error) {
-      console.log('Error fetching messages:', error);
-    }
-  };
+
 
   const fetchTimeline = async () => {
     try {
@@ -106,28 +142,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!messageText.trim()) return;
 
-    try {
-      setSendingMessage(true);
-      const response = await apiService.sendMessage(caseId, {
-        content: messageText.trim(),
-        messageType: 'text',
-        priority: 'normal'
-      });
-
-      if (response.success) {
-        setMessages([...messages, response.data]);
-        setMessageText('');
-        setTimeout(() => messagesEndRef.current?.scrollToEnd({ animated: true }), 100);
-      }
-    } catch (error) {
-      toast.error('Failed to send message', 'Please try again');
-    } finally {
-      setSendingMessage(false);
-    }
-  };
 
   const handleCallReporter = () => {
     if (caseData?.contactInfo?.phone) {
@@ -159,8 +174,7 @@ export default function CaseDetailsScreen({ route, navigation }) {
     setRefreshing(true);
     await Promise.all([
       fetchCaseDetails(),
-      fetchTimeline(),
-      fetchMessages()
+      fetchTimeline()
     ]);
     setRefreshing(false);
   };
@@ -266,11 +280,20 @@ export default function CaseDetailsScreen({ route, navigation }) {
           style={[styles.tab, activeTab === 'messages' ? styles.tabActive : null]}
           onPress={() => setActiveTab('messages')}
         >
-          <MaterialIcons 
-            name="chat" 
-            size={20} 
-            color={activeTab === 'messages' ? theme.colors.primary : theme.colors.textSecondary} 
-          />
+          <View style={styles.tabIconContainer}>
+            <MaterialIcons 
+              name="chat" 
+              size={20} 
+              color={activeTab === 'messages' ? theme.colors.primary : theme.colors.textSecondary} 
+            />
+            {unreadCounts[caseId] > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {unreadCounts[caseId] > 99 ? '99+' : unreadCounts[caseId]}
+                </Text>
+              </View>
+            )}
+          </View>
           <Text style={[styles.tabText, activeTab === 'messages' ? styles.tabTextActive : null]}>
             Messages
           </Text>
@@ -481,77 +504,10 @@ export default function CaseDetailsScreen({ route, navigation }) {
       )}
 
       {activeTab === 'messages' && (
-        <View style={styles.messagesContainer}>
-          <ScrollView 
-            ref={messagesEndRef}
-            style={styles.messagesList}
-            contentContainerStyle={[styles.messagesContent, { paddingBottom: insets.bottom + 160 }]}
-            showsVerticalScrollIndicator={false}
-          >
-            {messages.length === 0 ? (
-              <View style={styles.emptyMessages}>
-                <MaterialIcons name="chat-bubble-outline" size={64} color={theme.colors.textSecondary} />
-                <Text style={styles.emptyMessagesText}>No messages yet</Text>
-                <Text style={styles.emptyMessagesSubtext}>Start the conversation</Text>
-              </View>
-            ) : (
-              messages.map((message, index) => {
-                const isOwnMessage = message.senderId?._id === user?.id || message.senderId?._id === user?._id;
-                const senderName = message.senderId?.name || 'System';
-                
-                return (
-                  <View 
-                    key={message._id || index} 
-                    style={[
-                      styles.messageBubble,
-                      isOwnMessage ? styles.messageBubbleOwn : styles.messageBubbleOther
-                    ]}
-                  >
-                    {!isOwnMessage && (
-                      <Text style={styles.messageSender}>{senderName}</Text>
-                    )}
-                    <Text style={[
-                      styles.messageText,
-                      isOwnMessage && styles.messageTextOwn
-                    ]}>
-                      {message.content}
-                    </Text>
-                    <Text style={[
-                      styles.messageTime,
-                      isOwnMessage && styles.messageTimeOwn
-                    ]}>
-                      {formatTimeAgo(message.timestamp)}
-                    </Text>
-                  </View>
-                );
-              })
-            )}
-          </ScrollView>
-
-          {/* Message Input */}
-          <View style={[styles.messageInputContainer, { paddingBottom: insets.bottom + 80 }]}>
-            <TextInput
-              style={styles.messageInput}
-              placeholder="Type a message..."
-              placeholderTextColor={theme.colors.textTertiary}
-              value={messageText}
-              onChangeText={setMessageText}
-              multiline
-              maxLength={2000}
-            />
-            <TouchableOpacity 
-              style={[styles.sendButton, !messageText.trim() ? styles.sendButtonDisabled : null]}
-              onPress={handleSendMessage}
-              disabled={!messageText.trim() || sendingMessage}
-            >
-              <MaterialIcons 
-                name="send" 
-                size={24} 
-                color={messageText.trim() ? theme.colors.white : theme.colors.textTertiary} 
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
+        <CaseMessaging 
+          caseId={caseId} 
+          style={{ paddingBottom: insets.bottom + 80 }}
+        />
       )}
 
       {activeTab === 'timeline' && (
@@ -605,29 +561,49 @@ export default function CaseDetailsScreen({ route, navigation }) {
                     toast.error('Failed', 'Could not assign case');
                   }
                 }}
-                variant="accent"
+                variant="primary"
                 size="large"
                 style={{ flex: 1 }}
               />
               <GlassButton
                 title="AI Help"
                 onPress={() => navigation.navigate('AIEmergency', { caseId })}
-                variant="secondary"
+                variant="accent"
                 size="large"
-                icon={<MaterialIcons name="psychology" size={20} color={theme.colors.primary} />}
+                icon={<MaterialIcons name="psychology" size={20} color={theme.colors.white} />}
                 style={{ flex: 1 }}
               />
             </View>
           ) : isUserAssigned() ? (
-            <View style={styles.assignedBadge}>
-              <MaterialIcons name="check-circle" size={20} color={theme.colors.success} />
-              <Text style={styles.assignedText}>You are helping with this case</Text>
-            </View>
+            <>
+              <View style={styles.assignedBadge}>
+                <MaterialIcons name="check-circle" size={20} color={theme.colors.success} />
+                <Text style={styles.assignedText}>You are helping with this case</Text>
+              </View>
+              <GlassButton
+                title="AI Help"
+                onPress={() => navigation.navigate('AIEmergency', { caseId })}
+                variant="accent"
+                size="large"
+                icon={<MaterialIcons name="psychology" size={20} color={theme.colors.white} />}
+                style={{ marginTop: theme.spacing.sm }}
+              />
+            </>
           ) : (
-            <View style={styles.assignedBadgeOther}>
-              <MaterialIcons name="info" size={20} color={theme.colors.textSecondary} />
-              <Text style={styles.assignedTextOther}>Case is being handled</Text>
-            </View>
+            <>
+              <View style={styles.assignedBadgeOther}>
+                <MaterialIcons name="info" size={20} color={theme.colors.textSecondary} />
+                <Text style={styles.assignedTextOther}>Case is being handled</Text>
+              </View>
+              <GlassButton
+                title="AI Help"
+                onPress={() => navigation.navigate('AIEmergency', { caseId })}
+                variant="accent"
+                size="large"
+                icon={<MaterialIcons name="psychology" size={20} color={theme.colors.white} />}
+                style={{ marginTop: theme.spacing.sm }}
+              />
+            </>
           )}
         </View>
       )}
@@ -816,6 +792,26 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
+  },
+  tabIconContainer: {
+    position: 'relative',
+  },
+  unreadBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    backgroundColor: theme.colors.error,
+    borderRadius: theme.borderRadius.full,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  unreadBadgeText: {
+    fontSize: 10,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.white,
   },
   tabActive: {
     borderBottomColor: theme.colors.primary,

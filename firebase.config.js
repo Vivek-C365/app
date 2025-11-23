@@ -1,6 +1,7 @@
 /**
  * Firebase Configuration
- * This file configures Firebase for Expo
+ * This file configures Firebase for Google Sign-In only
+ * Note: Main backend uses Supabase, Firebase is only for Google OAuth
  */
 import { initializeApp } from 'firebase/app';
 import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';

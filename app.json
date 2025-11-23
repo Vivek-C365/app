@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "scheme": "com.animalrescue.mobile",
+    "scheme": "animalrescue",
     "assetBundlePatterns": [
       "**/*"
     ],

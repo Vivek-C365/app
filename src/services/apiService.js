@@ -4,8 +4,10 @@
  * TODO: Implement these with Supabase
  */
 
+import { supabase } from '../config/supabase';
 import caseService from './caseService';
 import aiService from './aiService';
+import messagingService from './messagingService';
 import toast from '../utils/toast';
 
 // Re-export case service methods
@@ -24,51 +26,265 @@ export const getEmergencyInstructions = aiService.getEmergencyInstructions;
 export const analyzeAnimalPhotos = aiService.analyzeAnimalPhotos;
 export const getTransportationOptions = aiService.getTransportationOptions;
 
-// Placeholder methods - TODO: Implement with Supabase
-export const getMessages = async (caseId) => {
-  console.warn('getMessages not yet implemented with Supabase');
-  return { success: true, data: { messages: [] } };
-};
-
-export const sendMessage = async (caseId, messageData) => {
-  console.warn('sendMessage not yet implemented with Supabase');
-  toast.info('Coming Soon', 'Messaging feature is being migrated to Supabase');
-  return { success: false, error: 'Not implemented yet' };
-};
+// Re-export messaging service methods
+export const getMessages = messagingService.getMessages;
+export const sendMessage = messagingService.sendMessage;
 
 export const assignCase = async (caseId, helperData) => {
-  console.warn('assignCase not yet implemented with Supabase');
-  toast.info('Coming Soon', 'Case assignment is being migrated to Supabase');
-  return { success: false, error: 'Not implemented yet' };
+  try {
+    // Get current user from auth context
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
+    // Check if user is already assigned to this case
+    const { data: existingAssignment } = await supabase
+      .from('case_assignments')
+      .select('*')
+      .eq('case_id', caseId)
+      .eq('helper_id', user.id)
+      .maybeSingle();
+
+    if (existingAssignment) {
+      // If already assigned, just accept it if not already accepted
+      if (existingAssignment.status !== 'accepted') {
+        const acceptResult = await caseService.acceptAssignment(existingAssignment.id);
+        if (!acceptResult.success) {
+          return acceptResult;
+        }
+      }
+
+      // Update case status to assigned
+      await caseService.updateCase(caseId, {
+        status: 'assigned',
+        helper_id: user.id,
+      });
+
+      return {
+        success: true,
+        assignment: existingAssignment,
+        message: 'You are now assigned to this case',
+      };
+    }
+
+    // Assign the current user as helper
+    const result = await caseService.assignHelper(caseId, user.id);
+    
+    if (!result.success) {
+      return result;
+    }
+
+    // Automatically accept the assignment
+    const acceptResult = await caseService.acceptAssignment(result.assignment.id);
+    
+    if (!acceptResult.success) {
+      return acceptResult;
+    }
+
+    // Update case status to assigned
+    await caseService.updateCase(caseId, {
+      status: 'assigned',
+      helper_id: user.id,
+    });
+
+    return {
+      success: true,
+      assignment: acceptResult.assignment,
+    };
+  } catch (error) {
+    console.error('Assign case error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to assign case',
+    };
+  }
 };
 
 export const transferCase = async (caseId, transferData) => {
-  console.warn('transferCase not yet implemented with Supabase');
-  toast.info('Coming Soon', 'Case transfer is being migrated to Supabase');
-  return { success: false, error: 'Not implemented yet' };
+  try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
+    // Add status update for transfer
+    await caseService.addStatusUpdate(caseId, {
+      status: 'open',
+      notes: `Transfer requested: ${transferData.reason}`,
+      updated_by: user.id,
+    });
+
+    // Update case status back to open and remove current helper
+    const result = await caseService.updateCase(caseId, {
+      status: 'open',
+      helper_id: null,
+      transfer_reason: transferData.reason,
+    });
+
+    if (!result.success) {
+      return result;
+    }
+
+    // Find nearby NGOs to notify
+    const caseResult = await caseService.getCaseById(caseId);
+    if (caseResult.success && caseResult.case?.location?.coordinates) {
+      const [lng, lat] = caseResult.case.location.coordinates;
+      await caseService.findHelpersForCase(caseId, {
+        radiusKm: 10,
+        preferredHelperTypes: ['ngo'],
+      });
+    }
+
+    return {
+      success: true,
+      case: result.case,
+    };
+  } catch (error) {
+    console.error('Transfer case error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to transfer case',
+    };
+  }
 };
 
-export const getNearbyNGOs = async (lat, lng, radius) => {
-  console.warn('getNearbyNGOs not yet implemented with Supabase');
-  return { success: true, data: { ngos: [] } };
+export const getNearbyNGOs = async (lat, lng, radius = 10) => {
+  try {
+    // Query profiles table for NGOs within radius
+    const { data, error } = await supabase.rpc('find_nearby_helpers', {
+      case_lat: lat,
+      case_lng: lng,
+      radius_km: radius,
+    });
+
+    if (error) {
+      console.error('Get nearby NGOs error:', error);
+      return { success: false, error: error.message };
+    }
+
+    // Filter for NGOs only
+    const ngos = (data || [])
+      .filter(helper => helper.user_type === 'ngo')
+      .map(ngo => ({
+        id: ngo.id,
+        name: ngo.name,
+        phone: ngo.phone,
+        email: ngo.email,
+        address: ngo.address || 'Address not available',
+        distance: ngo.distance_km,
+        verified: ngo.is_verified,
+      }));
+
+    return {
+      success: true,
+      data: { ngos },
+    };
+  } catch (error) {
+    console.error('Get nearby NGOs exception:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to fetch nearby NGOs',
+    };
+  }
 };
 
 export const markCaseResolved = async (caseId) => {
-  console.warn('markCaseResolved not yet implemented with Supabase');
-  toast.info('Coming Soon', 'Mark resolved is being migrated to Supabase');
-  return { success: false, error: 'Not implemented yet' };
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
+    // Add status update
+    await caseService.addStatusUpdate(caseId, {
+      status: 'resolved',
+      notes: 'Case marked as resolved',
+      updated_by: user.id,
+    });
+
+    // Update case status
+    const result = await caseService.updateCase(caseId, {
+      status: 'resolved',
+      resolved_at: new Date().toISOString(),
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Mark case resolved error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to mark case as resolved',
+    };
+  }
 };
 
 export const reporterRejectCase = async (caseId, reason) => {
-  console.warn('reporterRejectCase not yet implemented with Supabase');
-  toast.info('Coming Soon', 'Case rejection is being migrated to Supabase');
-  return { success: false, error: 'Not implemented yet' };
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
+    // Add status update
+    await caseService.addStatusUpdate(caseId, {
+      status: 'open',
+      notes: `Reporter rejected resolution: ${reason}`,
+      updated_by: user.id,
+    });
+
+    // Update case - reopen it
+    const result = await caseService.updateCase(caseId, {
+      status: 'open',
+      helper_id: null,
+      pending_reporter_approval: false,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Reporter reject case error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to reject case resolution',
+    };
+  }
 };
 
 export const reporterApproveCase = async (caseId) => {
-  console.warn('reporterApproveCase not yet implemented with Supabase');
-  toast.info('Coming Soon', 'Case approval is being migrated to Supabase');
-  return { success: false, error: 'Not implemented yet' };
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
+    // Add status update
+    await caseService.addStatusUpdate(caseId, {
+      status: 'resolved',
+      notes: 'Reporter approved resolution',
+      updated_by: user.id,
+    });
+
+    // Update case to resolved
+    const result = await caseService.updateCase(caseId, {
+      status: 'resolved',
+      resolved_at: new Date().toISOString(),
+      pending_reporter_approval: false,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Reporter approve case error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to approve case resolution',
+    };
+  }
 };
 
 /**

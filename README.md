@@ -198,21 +198,30 @@ const { data, error } = await supabase.functions.invoke('case-workflow', {
 - ✅ Edge Functions template
 
 ### In Progress (See tasks.md)
-- ⏳ User authentication and verification
-- ⏳ Animal case reporting with photos
-- � Location-based matching with PostGIS
-- ⏳ Real-time messaging with Supabase Realtime
-- ⏳ Multi-channel notifications via Edge Functions
-- ⏳ AI emergency assistance with Gemini
-- ⏳ Status update reminders with pg_cron
+- ✅ User authentication and verification
+- ✅ Animal case reporting with photos
+- ✅ Location-based matching with PostGIS
+- ✅ Real-time messaging with Supabase Realtime
+- ✅ Status update reminders with pg_cron
+- ✅ AI emergency assistance with Gemini
+- ⏳ Multi-channel notifications via Edge Functions (WhatsApp, Email)
 
 ## Documentation
 
+### Spec Documents
 - **Setup Guide**: `.kiro/specs/animal-rescue-platform/supabase-setup.md`
 - **Requirements**: `.kiro/specs/animal-rescue-platform/requirements.md`
 - **Design**: `.kiro/specs/animal-rescue-platform/design.md`
 - **Tasks**: `.kiro/specs/animal-rescue-platform/tasks.md`
 - **Cleanup Guide**: `.kiro/specs/animal-rescue-platform/cleanup-guide.md`
+
+### Feature Guides
+- **AI Emergency System**: `supabase/AI_EMERGENCY_SYSTEM_GUIDE.md`
+- **AI Functions Deployment**: `supabase/functions/AI_FUNCTIONS_DEPLOYMENT.md`
+- **Reminder System**: `supabase/REMINDER_SYSTEM_QUICKSTART.md`
+- **RLS Policies**: `supabase/RLS_POLICIES_GUIDE.md`
+- **Realtime Integration**: `REALTIME_INTEGRATION_GUIDE.md`
+- **Push Notifications**: `PUSH_NOTIFICATIONS_IMPLEMENTATION.md`
 
 ## Troubleshooting
 

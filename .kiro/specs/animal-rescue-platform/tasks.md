@@ -198,9 +198,7 @@
   - Add case reassignment logic for non-responsive helpers
   - _Requirements: 5.2, 5.4_
 
-- [ ] 17. Implement push notifications in mobile app
-
-
+- [x] 17. Implement push notifications in mobile app
 
 
   - Integrate Expo Notifications for push notifications
@@ -212,11 +210,6 @@
   - _Requirements: 2.2, 6.5_
 
 - [ ] 18. Build multi-channel notification system with Edge Functions
-
-
-
-
-
   - Create Edge Function for notification orchestration (send-notifications)
   - Integrate Brevo API for email notifications in Edge Function
   - Implement WhatsApp Business API for messaging in Edge Function
@@ -226,12 +219,7 @@
   - Implement reminder notifications with escalation via Edge Functions
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 5.2_
 
-- [ ] 19. Build real-time messaging with Supabase Realtime
-
-
-
-
-
+- [x] 19. Build real-time messaging with Supabase Realtime
   - Integrate Supabase Realtime client for live message subscriptions
   - Create chat interface with message bubbles
   - Implement real-time message updates using postgres_changes subscription
@@ -241,11 +229,7 @@
   - Implement presence tracking for online users
   - _Requirements: 7.1, 7.2, 7.3_
 
-- [ ] 20. Set up Supabase Realtime subscriptions for live updates
-
-
-
-
+- [x] 20. Set up Supabase Realtime subscriptions for live updates
   - Subscribe to new cases using postgres_changes for INSERT events
   - Implement case status update subscriptions for real-time UI updates
   - Create message subscriptions filtered by case_id
@@ -254,9 +238,7 @@
   - Implement reconnection logic for dropped connections
   - _Requirements: 5.2, 7.1, 7.2_
 
-- [ ] 21. Implement Row Level Security policies for data access control
-
-
+- [x] 21. Implement Row Level Security policies for data access control
 
 
 
@@ -271,14 +253,6 @@
 
 - [x] 22. Build AI Emergency Assistance screen in mobile app
 
-
-
-
-
-
-
-
-
   - Create AI chat interface for emergency guidance
   - Build facility recommendation display
   - Implement one-tap calling to facilities
@@ -287,11 +261,7 @@
   - Build photo analysis result display
   - _Requirements: 2.1, 2.2 (fallback scenarios)_
 
-- [ ] 23. Implement Google Gemini AI emergency system with Edge Functions
-
-
-
-
+- [x] 23. Implement Google Gemini AI emergency system with Edge Functions
 
   - Create Edge Function for AI emergency assistance (ai-emergency)
   - Set up Google Gemini AI API integration in Edge Function
@@ -302,7 +272,8 @@
   - Create emergency contact integration in Edge Function
   - _Requirements: 2.1, 2.2 (fallback scenarios)_
 
-- [ ] 24. Implement offline mode and data synchronization with AsyncStorage
+- [x] 24. Implement offline mode and data synchronization with AsyncStorage
+
 
 
 
@@ -317,10 +288,8 @@
   - _Requirements: 6.4 (offline capability)_
 
 - [ ] 25. Add mobile-specific features and enhancements
-
-
-
-
+  - Implement biometric authentication for login and registration
+  - Add voice input for text field input
   - Implement voice input for hands-free reporting
   - Add biometric authentication with Supabase Auth
   - Create background location tracking for volunteers
@@ -330,11 +299,6 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
 - [ ] 26. Build admin verification system with Edge Functions and RLS
-
-
-
-
-
   - Create Edge Function for user verification workflow (verify-user)
   - Build admin dashboard queries using Supabase client with RLS
   - Implement case monitoring and analytics using PostgreSQL views
@@ -345,10 +309,6 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
 - [ ] 27. Integrate external services with Supabase Storage and Edge Functions
-
-
-
-
   - Configure Supabase Storage buckets with public/private access policies
   - Set up Cloudinary for advanced image processing and transformations
   - Integrate Brevo email service in Edge Functions
@@ -359,10 +319,6 @@
   - _Requirements: 1.4, 2.1, 2.2, 6.3, 7.4_
 
 - [ ] 28. Optimize mobile app performance with Supabase
-
-
-
-
   - Implement image compression before upload to Supabase Storage
   - Add lazy loading for case lists with Supabase pagination
   - Optimize Supabase queries with proper indexes and filters
@@ -373,10 +329,6 @@
   - _Requirements: All requirements need performance optimization_
 
 - [ ] 29. Implement comprehensive testing for mobile and Supabase backend
-
-
-
-
   - Write unit tests for React Native components with Jest
   - Create integration tests for Supabase client operations
   - Test Edge Functions using Deno test framework
@@ -389,10 +341,6 @@
   - _Requirements: All requirements need testing coverage_
 
 - [ ] 30. Set up Supabase production deployment and monitoring
-
-
-
-
   - Configure Supabase production project with appropriate tier
   - Set up database backup and point-in-time recovery
   - Implement monitoring using Supabase Dashboard and logs
@@ -404,10 +352,6 @@
   - _Requirements: Platform reliability for all features_
 
 - [ ] 31. Prepare mobile app for store deployment
-
-
-
-
   - Configure app icons and splash screens for iOS and Android
   - Set up app signing certificates
   - Create app store listings and screenshots

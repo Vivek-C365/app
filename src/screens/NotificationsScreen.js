@@ -2,16 +2,26 @@
  * Notifications Screen
  * Display user notifications
  */
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
+import { useNotifications } from '../contexts/NotificationContext';
 import GlassCard from '../components/GlassCard';
 
 export default function NotificationsScreen() {
   const [selectedTab, setSelectedTab] = useState('all');
   const insets = useSafeAreaInsets();
+  const { clearBadge } = useNotifications();
+
+  // Clear badge when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      clearBadge();
+    }, [])
+  );
 
   const tabs = [
     { id: 'all', label: 'All', count: 12 },

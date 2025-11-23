@@ -50,3 +50,12 @@ export { default as NearbyCasesList } from './NearbyCasesList';
 
 // Status update components
 export { default as StatusUpdateTimeline } from './StatusUpdateTimeline';
+
+// Messaging components
+export { default as CaseMessaging } from './CaseMessaging';
+
+// Realtime components
+export { default as RealtimeConnectionStatus } from './RealtimeConnectionStatus';
+
+// Offline components
+export { default as OfflineIndicator } from './OfflineIndicator';

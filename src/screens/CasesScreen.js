@@ -15,16 +15,23 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import BottomSheet from '../components/BottomSheet';
 import GlassButton from '../components/GlassButton';
 import GlassInput from '../components/GlassInput';
+import OfflineIndicator from '../components/OfflineIndicator';
 import apiService from '../services/apiService';
 import caseService from '../services/caseService';
 import toast from '../utils/toast';
 import { calculateDistance, formatDistance } from '../utils/locationUtils';
 import { saveToCache, getFromCache } from '../utils/cacheUtils';
 import { useAuth } from '../contexts/AuthContext';
+import { useRealtime } from '../contexts/RealtimeContext';
+import { useOffline } from '../contexts/OfflineContext';
+import { useNotifications } from '../contexts/NotificationContext';
 
 export default function CasesScreen() {
   const navigation = useNavigation();
   const { user, isAuthenticated } = useAuth();
+  const { subscribeToNewCases, subscribeToCaseUpdates } = useRealtime();
+  const { isOnline, cacheCases, getCachedCases, stats } = useOffline();
+  const { badgeCount } = useNotifications();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [cases, setCases] = useState([]);
@@ -52,9 +59,79 @@ export default function CasesScreen() {
   const isSmallScreen = width < 375;
 
   useEffect(() => {
+    // Only fetch on initial load
     fetchCases();
     getUserLocation();
+  }, []); // Empty dependency array - only run once on mount
+
+  // Filter cases when tab changes (no reload needed)
+  useEffect(() => {
+    applyFiltersAndSearch();
   }, [activeTab]);
+
+  // Subscribe to new cases and updates
+  useEffect(() => {
+    // Only subscribe to new cases when viewing 'all' tab
+    if (activeTab === 'all') {
+      const newCasesSubscription = subscribeToNewCases((newCase) => {
+        console.log('New case received:', newCase);
+        
+        // Transform and add to cases list
+        const transformedCase = {
+          id: newCase.id,
+          dbId: newCase.id,
+          name: getAnimalName(newCase.animal_type),
+          type: capitalizeFirst(newCase.animal_type),
+          status: capitalizeFirst(newCase.status),
+          location: newCase.location_address || newCase.location_landmarks || 'Unknown location',
+          time: getTimeAgo(newCase.created_at),
+          condition: newCase.description,
+          reporter: newCase.contact_info?.name || newCase.reporter?.name || 'Anonymous',
+          imageUrl: newCase.photos && newCase.photos.length > 0 ? newCase.photos[0] : null,
+          fullData: newCase,
+          coordinates: newCase.location_point ? extractCoordinates(newCase.location_point) : null,
+          animalType: newCase.animal_type,
+          urgencyLevel: newCase.urgency_level,
+          createdAt: newCase.created_at
+        };
+        
+        // Add to top of list
+        setCases(prevCases => [transformedCase, ...prevCases]);
+        
+        // Show toast notification
+        toast.info('New Case', `New ${newCase.animal_type} case reported nearby`);
+      }, { status: 'open' });
+
+      return () => {
+        newCasesSubscription.unsubscribe();
+      };
+    }
+  }, [activeTab, subscribeToNewCases]);
+
+  // Subscribe to case updates for all visible cases
+  useEffect(() => {
+    const updateSubscription = subscribeToCaseUpdates(null, (updateData) => {
+      console.log('Case updated:', updateData);
+      
+      // Update the case in the list
+      setCases(prevCases => 
+        prevCases.map(caseItem => {
+          if (caseItem.id === updateData.new.id) {
+            return {
+              ...caseItem,
+              status: capitalizeFirst(updateData.new.status),
+              fullData: updateData.new,
+            };
+          }
+          return caseItem;
+        })
+      );
+    });
+
+    return () => {
+      updateSubscription.unsubscribe();
+    };
+  }, [subscribeToCaseUpdates]);
 
   useEffect(() => {
     applyFiltersAndSearch();
@@ -79,8 +156,20 @@ export default function CasesScreen() {
     try {
       setLoading(true);
       
-      // Try to load from cache first
-      const cacheKey = `cases_${activeTab}_${user?.id || 'guest'}`;
+      // Try to load from offline cache first
+      if (!isOnline) {
+        const cachedCases = await getCachedCases(60);
+        if (cachedCases) {
+          setCases(cachedCases);
+          toast.info('Offline Mode', 'Showing cached cases');
+          setLoading(false);
+          setRefreshing(false);
+          return;
+        }
+      }
+      
+      // Try to load from old cache system
+      const cacheKey = `cases_all_${user?.id || 'guest'}`;
       const cachedData = await getFromCache(cacheKey);
       
       if (cachedData && !refreshing) {
@@ -88,105 +177,63 @@ export default function CasesScreen() {
         setLoading(false);
       }
       
-      // Fetch based on active tab
-      let response;
+      // Fetch all cases at once (open, assigned, and resolved)
+      const [openResponse, assignedResponse, resolvedResponse] = await Promise.all([
+        caseService.getCases({ status: 'open', limit: 50 }),
+        isAuthenticated ? caseService.getCases({ status: 'assigned', limit: 50 }) : { success: true, cases: [] },
+        isAuthenticated && user?.userType === 'ngo' ? caseService.getCases({ status: 'resolved', limit: 100 }) : { success: true, cases: [] }
+      ]);
       
-      if (activeTab === 'my') {
-        // Check if user is authenticated
-        if (!isAuthenticated) {
-          toast.warning('Login Required', 'Please login to view your cases');
-          setCases([]);
-          setLoading(false);
-          setRefreshing(false);
-          return;
-        }
-        
-        console.log('Fetching my cases for user:', user?.id || user?._id);
-        
-        // Fetch cases assigned to the current user
-        // Use myOnly parameter to filter by authenticated user
-        response = await caseService.getCases({ 
-          status: 'assigned', 
-          limit: 50
-        });
-        
-        console.log('My cases response:', response);
-      } else if (activeTab === 'reported') {
-        // Check if user is authenticated
-        if (!isAuthenticated) {
-          toast.warning('Login Required', 'Please login to view reported cases');
-          setCases([]);
-          setLoading(false);
-          setRefreshing(false);
-          return;
-        }
-        
-        console.log('Fetching reported cases for user:', user?.id || user?._id);
-        
-        // Fetch cases reported by the current user
-        // TODO: Add reporter filter to caseService
-        response = await caseService.getCases({ 
-          limit: 50
-        });
-        
-        console.log('Reported cases response:', response);
-      } else if (activeTab === 'history') {
-        // Check if user is authenticated and is an NGO
-        if (!isAuthenticated) {
-          toast.warning('Login Required', 'Please login to view case history');
-          setCases([]);
-          setLoading(false);
-          setRefreshing(false);
-          return;
-        }
-        
-        console.log('Fetching case history for NGO:', user?.id || user?._id);
-        
-        // Fetch all cases (resolved and closed) that the NGO has worked on
-        response = await caseService.getCases({ 
-          status: 'resolved',
-          limit: 100
-        });
-        
-        console.log('Case history response:', response);
-      } else {
-        // Fetch open cases
-        response = await caseService.getCases({ status: 'open', limit: 50 });
-      }
+      // Combine all cases
+      const allCases = [
+        ...(openResponse.success ? openResponse.cases : []),
+        ...(assignedResponse.success ? assignedResponse.cases : []),
+        ...(resolvedResponse.success ? resolvedResponse.cases : [])
+      ];
       
-      if (response.success && response.cases) {
-        // Transform API data to match component format
-        const transformedCases = response.cases.map(caseItem => ({
-          id: caseItem.id,
-          dbId: caseItem.id,
-          name: getAnimalName(caseItem.animal_type),
-          type: capitalizeFirst(caseItem.animal_type),
-          status: capitalizeFirst(caseItem.status),
-          location: caseItem.location_address || caseItem.location_landmarks || 'Unknown location',
-          time: getTimeAgo(caseItem.created_at),
-          condition: caseItem.description,
-          reporter: caseItem.contact_info?.name || caseItem.reporter?.name || 'Anonymous',
-          imageUrl: caseItem.photos && caseItem.photos.length > 0 ? caseItem.photos[0] : null,
-          fullData: caseItem,
-          coordinates: caseItem.location_point ? extractCoordinates(caseItem.location_point) : null,
-          animalType: caseItem.animal_type,
-          urgencyLevel: caseItem.urgency_level,
-          createdAt: caseItem.created_at
-        }));
-        
-        setCases(transformedCases);
-        // Cache the data for offline viewing (30 minutes expiry)
-        await saveToCache(cacheKey, transformedCases, 30);
-      }
+      // Transform API data to match component format
+      const transformedCases = allCases.map(caseItem => ({
+        id: caseItem.id,
+        dbId: caseItem.id,
+        name: getAnimalName(caseItem.animal_type),
+        type: capitalizeFirst(caseItem.animal_type),
+        status: capitalizeFirst(caseItem.status),
+        location: caseItem.location_address || caseItem.location_landmarks || 'Unknown location',
+        time: getTimeAgo(caseItem.created_at),
+        condition: caseItem.description,
+        reporter: caseItem.contact_info?.name || caseItem.reporter?.name || 'Anonymous',
+        imageUrl: caseItem.photos && caseItem.photos.length > 0 ? caseItem.photos[0] : null,
+        fullData: caseItem,
+        coordinates: caseItem.location_point ? extractCoordinates(caseItem.location_point) : null,
+        animalType: caseItem.animal_type,
+        urgencyLevel: caseItem.urgency_level,
+        createdAt: caseItem.created_at,
+        reporterId: caseItem.reporter_id || caseItem.reporter?.id,
+        helperId: caseItem.helper_id || caseItem.helper?.id
+      }));
+      
+      setCases(transformedCases);
+      
+      // Cache the data for offline viewing
+      await cacheCases(transformedCases);
+      // Also save to old cache system (30 minutes expiry)
+      await saveToCache(cacheKey, transformedCases, 30);
     } catch (error) {
       toast.error('Failed to load cases', 'Please check your connection and try again');
       
       // If network error, try to use cached data
-      const cacheKey = `cases_${activeTab}_${user?.id || 'guest'}`;
-      const cachedData = await getFromCache(cacheKey);
-      if (cachedData) {
-        setCases(cachedData);
+      const cachedCases = await getCachedCases(60);
+      if (cachedCases) {
+        setCases(cachedCases);
         toast.info('Offline Mode', 'Showing cached cases');
+      } else {
+        // Fallback to old cache
+        const cacheKey = `cases_all_${user?.id || 'guest'}`;
+        const cachedData = await getFromCache(cacheKey);
+        if (cachedData) {
+          setCases(cachedData);
+          toast.info('Offline Mode', 'Showing cached cases');
+        }
       }
     } finally {
       setLoading(false);
@@ -196,6 +243,43 @@ export default function CasesScreen() {
 
   const applyFiltersAndSearch = () => {
     let filtered = [...cases];
+
+    // Apply tab-based filtering first
+    if (activeTab === 'all') {
+      // Show only open cases
+      filtered = filtered.filter(caseItem => 
+        caseItem.status.toLowerCase() === 'open'
+      );
+    } else if (activeTab === 'my') {
+      // Show cases assigned to current user
+      if (!isAuthenticated) {
+        filtered = [];
+      } else {
+        filtered = filtered.filter(caseItem => 
+          caseItem.status.toLowerCase() === 'assigned' &&
+          (caseItem.helperId === user?.id || caseItem.helperId === user?._id)
+        );
+      }
+    } else if (activeTab === 'reported') {
+      // Show cases reported by current user
+      if (!isAuthenticated) {
+        filtered = [];
+      } else {
+        filtered = filtered.filter(caseItem => 
+          caseItem.reporterId === user?.id || caseItem.reporterId === user?._id
+        );
+      }
+    } else if (activeTab === 'history') {
+      // Show resolved cases for NGOs
+      if (!isAuthenticated || user?.userType !== 'ngo') {
+        filtered = [];
+      } else {
+        filtered = filtered.filter(caseItem => 
+          caseItem.status.toLowerCase() === 'resolved' &&
+          (caseItem.helperId === user?.id || caseItem.helperId === user?._id)
+        );
+      }
+    }
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -487,20 +571,39 @@ export default function CasesScreen() {
         }
       >
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerLeft}>
             <Text style={styles.title}>Animalbook</Text>
             <Text style={styles.subtitle}>
               {filteredCases.length} {filteredCases.length === 1 ? 'case' : 'cases'} {activeTab === 'my' ? 'assigned to you' : 'nearby'}
             </Text>
           </View>
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => navigation.navigate('Report')}
-          >
-            <MaterialIcons name="add" size={16} color={theme.colors.white} />
-            <Text style={styles.addButtonText}>Add New</Text>
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <TouchableOpacity 
+              style={styles.notificationButton}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <MaterialIcons name="notifications-none" size={20} color={theme.colors.textPrimary} />
+              {badgeCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.addButton}
+              onPress={() => navigation.navigate('Report')}
+            >
+              <MaterialIcons name="add" size={24} color={theme.colors.white} />
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {/* Offline Indicator - compact mode, only shows when offline or syncing */}
+        {(!isOnline || stats.queuedMutations > 0) && (
+          <OfflineIndicator compact style={{ marginBottom: theme.spacing.xs }} />
+        )}
 
         {/* Search and Filter Bar */}
         <View style={styles.searchContainer}>
@@ -1162,6 +1265,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: theme.spacing.xl,
   },
+  headerLeft: {
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
   title: {
     fontSize: 32,
     fontWeight: theme.typography.fontWeight.bold,
@@ -1173,26 +1284,47 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontWeight: theme.typography.fontWeight.regular,
   },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: theme.colors.accent,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: theme.colors.background,
+  },
+  notificationBadgeText: {
+    color: theme.colors.white,
+    fontSize: 10,
+    fontWeight: theme.typography.fontWeight.bold,
+  },
   addButton: {
-    flexDirection: 'row',
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.accent,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.full,
-    gap: theme.spacing.xs,
+    borderRadius: 20,
     shadowColor: theme.colors.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
-  },
-  addButtonText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.bold,
-    letterSpacing: 0.3,
   },
   tabsContainer: {
     marginBottom: theme.spacing.lg,

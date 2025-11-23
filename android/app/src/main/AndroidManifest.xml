@@ -38,6 +38,7 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="com.animalrescue.mobile"/>
         <data android:scheme="exp+animal-rescue-mobile"/>
+        <data android:scheme="animalrescue"/>
       </intent-filter>
     </activity>
   </application>

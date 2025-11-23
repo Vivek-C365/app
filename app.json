@@ -18,8 +18,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.animalrescue.mobile",
-      "statusBarStyle": "light",
       "infoPlist": {
+        "UIStatusBarStyle": "UIStatusBarStyleLightContent",
         "UIViewControllerBasedStatusBarAppearance": false,
         "NSCameraUsageDescription": "This app needs access to your camera to take photos of animals in distress.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select photos of animals.",
@@ -62,7 +62,8 @@
           "color": "#FF6B35"
         }
       ],
-      "sentry-expo"
+      "sentry-expo",
+      "expo-font"
     ],
     "extra": {
       "eas": {

@@ -25,3 +25,7 @@ server/uploads/
 # Database
 *.db
 *.sqlite
+
+# Native folders (using Prebuild/CNG)
+/android
+/ios

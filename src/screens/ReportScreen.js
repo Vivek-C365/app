@@ -14,9 +14,9 @@ import GlassButton from '../components/GlassButton';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PhotoManager from '../components/PhotoManager';
-import LocationPicker from '../components/LocationPicker';
 import OfflineIndicator from '../components/OfflineIndicator';
 import caseService from '../services/caseService';
+import locationService from '../services/locationService';
 import { supabase } from '../config/supabase';
 import config from '../../config';
 import toast from '../utils/toast';
@@ -39,7 +39,6 @@ export default function ReportScreen() {
   const [contactEmail, setContactEmail] = useState('');
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
@@ -47,6 +46,7 @@ export default function ReportScreen() {
   const [currentDraftId, setCurrentDraftId] = useState(null);
   const [contactFieldsDisabled, setContactFieldsDisabled] = useState(false);
   const [wantsFollowUp, setWantsFollowUp] = useState(null); // New field for follow-up preference - null means not selected yet
+  const [locationLoading, setLocationLoading] = useState(false);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 375;
@@ -54,26 +54,42 @@ export default function ReportScreen() {
   // Auto-fill user details if logged in
   useEffect(() => {
     if (isAuthenticated && user) {
+      console.log('Auto-filling user details:', user);
+      
       // Only auto-fill if fields are empty (not overriding draft or user input)
-      if (!contactName && user.name) {
-        setContactName(user.name);
-      }
-      if (!contactPhone && user.phone) {
-        // Format phone number if needed
-        const phone = user.phone.replace(/^GOOGLE_/, ''); // Remove GOOGLE_ prefix if exists
-        if (phone.length === 10) {
-          setContactPhone(phone);
+      if (!contactName) {
+        // Try user_metadata.name, then user_metadata.full_name, then email
+        const name = user.user_metadata?.name || user.user_metadata?.full_name || user.email?.split('@')[0];
+        if (name) {
+          setContactName(name);
+          console.log('Set contact name:', name);
         }
       }
+      
+      if (!contactPhone) {
+        // Try user_metadata.phone or phone field
+        const phone = user.user_metadata?.phone || user.phone;
+        if (phone) {
+          // Format phone number if needed
+          const cleanPhone = phone.replace(/^GOOGLE_/, '').replace(/\D/g, ''); // Remove GOOGLE_ prefix and non-digits
+          if (cleanPhone.length >= 10) {
+            setContactPhone(cleanPhone);
+            console.log('Set contact phone:', cleanPhone);
+          }
+        }
+      }
+      
       if (!contactEmail && user.email) {
         setContactEmail(user.email);
+        console.log('Set contact email:', user.email);
       }
+      
       // Only disable fields if they have values
-      const hasName = contactName || user.name;
-      const hasPhone = contactPhone || (user.phone && user.phone.replace(/^GOOGLE_/, '').length === 10);
+      const hasName = contactName || user.user_metadata?.name || user.user_metadata?.full_name;
+      const hasPhone = contactPhone || user.user_metadata?.phone || user.phone;
       setContactFieldsDisabled(hasName && hasPhone);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, contactName, contactPhone, contactEmail]);
 
   // Load draft on mount
   useEffect(() => {
@@ -233,22 +249,37 @@ export default function ReportScreen() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleLocationSelect = (locationData) => {
-    // LocationPicker returns { latitude, longitude, address }
-    if (locationData.latitude && locationData.longitude) {
+  const handlePickLocation = async () => {
+    // Fetch user location automatically when button is clicked
+    try {
+      setLocationLoading(true);
+      const currentLocation = await locationService.getCurrentLocation();
+      
+      // Get address from coordinates using reverse geocoding
+      const address = await locationService.reverseGeocode(
+        currentLocation.latitude,
+        currentLocation.longitude
+      );
+
+      // Set location data with address
       setLocationCoords({
-        latitude: locationData.latitude,
-        longitude: locationData.longitude,
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
       });
+      
+      // Set the formatted address
+      const locationString = address?.formattedAddress || 'Location detected';
+      setLocation(locationString);
+
+      console.log('User location fetched:', locationString);
+      toast.success('Location Detected', 'Your current location has been set');
+      
+    } catch (error) {
+      console.log('Could not fetch location:', error.message);
+      toast.error('Location Error', 'Could not get your location. Please enter it manually.');
+    } finally {
+      setLocationLoading(false);
     }
-    
-    // Set address
-    if (locationData.address) {
-      setLocation(locationData.address);
-    }
-    
-    // Close the picker
-    setShowLocationPicker(false);
   };
 
   const handleSubmit = async () => {
@@ -536,7 +567,8 @@ export default function ReportScreen() {
           <View style={styles.locationButtons}>
             <GlassButton
               title="Pick Location"
-              onPress={() => setShowLocationPicker(true)}
+              onPress={handlePickLocation}
+              loading={locationLoading}
               variant="light"
               icon={<MaterialIcons name="my-location" size={18} color={theme.colors.textPrimary} />}
               style={{ flex: 1 }}
@@ -694,18 +726,6 @@ export default function ReportScreen() {
 
         <Text style={styles.requiredNote}>* Required fields</Text>
       </ScrollView>
-
-      <Modal
-        visible={showLocationPicker}
-        onClose={() => setShowLocationPicker(false)}
-        title="Select Location"
-        size="large"
-      >
-        <LocationPicker
-          onLocationSelect={handleLocationSelect}
-          initialLocation={locationCoords}
-        />
-      </Modal>
 
       <ConfirmDialog
         visible={showSubmitDialog}
